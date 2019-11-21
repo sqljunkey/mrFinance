@@ -427,6 +427,7 @@ public class Communicator extends Thread {
 
 					br.close();
 				} catch (Exception e) {
+					e.printStackTrace();
 				}
 
 				Object quote[] = d.stock.getMadeUpIndex(ticker);
