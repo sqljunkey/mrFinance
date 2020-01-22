@@ -203,10 +203,10 @@ public class DownloadData extends Thread {
 						List<String> data = Arrays.asList(row.text().split(" "));
 						System.out.println(row.select("td").get(4).text());
 						System.out.println(row.select("td").get(9).text());
-						System.out.println(row.select("td").get(1).select("a").get(1).text());
+						System.out.println(row.select("td").get(1).text());
 						price[0] = Double.parseDouble(row.select("td").get(4).text().replaceAll("[^0-9.-]", ""));
 						price[1] = Double.parseDouble(row.select("td").get(8).text().replaceAll("[^0-9.-]", ""));
-						price[2] = row.select("td").get(1).select("a").get(1).text();
+						price[2] = row.select("td").get(1).text();
 						break;
 					}
 				}

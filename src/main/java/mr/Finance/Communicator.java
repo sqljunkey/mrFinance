@@ -348,15 +348,10 @@ public class Communicator extends Thread {
 
 			if (message.contains(".scores") && message.charAt(0) == '.' && message.charAt(1) == 's') {
 				List<String> lines = am.getScore();
-				sendMessage(sender, "" + "LAST CYCLE CLOSED (10/1/2019 - 11/1/2019) ");
-				sendMessage(sender, "" + "============================== ");
-				sendMessage(sender, "" + "     ");
-				sendMessage(sender, "" + "1st Place.   OPK             $110,110.2157");
-				sendMessage(sender, "" + "2nd Place.   db              $109,722.2448");
-				sendMessage(sender, "" + "3rd Place.   bhaak           $105,790.4217");
-				sendMessage(sender, "" + "  ");
-				sendMessage(sender, "" + "NEW CYCLE SCORES (11/1/2019 - 12/1/2019)");
-				sendMessage(sender, "" + "================================");
+				sendMessage(sender, "" + "=============================================");
+				sendMessage(sender, "" + " The game will run until the server crashes  ");
+				sendMessage(sender, "" + "          Since Dec 01 2019                  ");
+				sendMessage(sender, "" + "=============================================");
 				for (String line : lines) {
 					sendMessage(sender, "" + line);
 
