@@ -8,7 +8,7 @@ public class App {
 
 		c.addChannel("#materia");
 		c.addChannel("##economics");
-
+		c.addChannel("##investments");
 		c.addChannel("#bitcoin-pricetalk");
 		c.addChannel("##austrians");
 		c.addChannel("##econometrix");

@@ -86,6 +86,10 @@ public class AccountManager extends Thread {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			
+			
+			
+			
 			Connection conn = null;
 			Properties connectionProps = new Properties();
 			connectionProps.put("user", user);
