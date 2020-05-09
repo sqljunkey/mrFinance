@@ -315,11 +315,89 @@ public class DownloadData extends Thread {
 			return quote;
 
 		}
+		
+		//Get Libor Rate Data
+		public Double[] getLibor() {
+			Double price[] = { 0.0, //1 month libor rate
+					           0.0, //3 month libor rate
+					           0.0, //6 month libor rate
+					           0.0 //1 year  libor rate
+					             };
+			
+				
+			
+			try {
+				
 
+				URL url = new URL("https://www.bankrate.com/rates/interest-rates/libor.aspx");
+				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
+				
+				
+				
+				Pattern oneMonth = Pattern.compile("1\\s+Month\\s+LIBOR\\s+Rate\\s+(\\d+\\.\\d+)");
+				Pattern threeMonth = Pattern.compile("3\\s+Month\\s+LIBOR\\s+Rate\\s+(\\d+\\.\\d+)");
+				Pattern sixMonth = Pattern.compile("6\\s+Month\\s+LIBOR\\s+Rate\\s+(\\d+\\.\\d+)");
+				Pattern oneYear = Pattern.compile("1\\s+Year\\s+LIBOR\\s+Rate\\s+(\\d+\\.\\d+)");
+				
+				//Check For one Month Libor Rate
+				Matcher m = oneMonth.matcher(doc.text());
+				
+				if(m.find()) {
+					
+					price[0] = Double.parseDouble(m.group(1));
+					
+					
+					
+					}
+				
+				//Check for three Month Libor Rate
+			     m = threeMonth.matcher(doc.text());
+				
+				if(m.find()) {
+					
+					price[1] = Double.parseDouble(m.group(1));
+					
+					}
+				
+				//Check for six Month Libor Rate
+				 m = sixMonth.matcher(doc.text());
+				 
+				if(m.find()) {
+					
+					price[2] = Double.parseDouble(m.group(1));
+					}
+				
+				//Check for one Year Libor Rate
+				m = oneYear.matcher(doc.text());
+				
+				if(m.find()) {
+					price[3] = Double.parseDouble(m.group(1));
+					
+					}
+				
+				
+			}catch(Exception e) {
+				
+				e.printStackTrace();
+				
+			}
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			return price;
+					
+			
+		}
 		public Object[] getYield(String ticker) {
 
 			Object price[] = { 0.0, 0.0 };
-			Pattern p = Pattern.compile("Yield(\\s+\\d+\\.\\d+\\%)\\s+(\\d+\\.\\d+)\\s+Price");
+			Pattern p = Pattern.compile("Yield(\\s+\\d+\\.\\d+\\%)\\s+(-?\\d+\\.\\d+)\\s+Price");
 			try {
 				
 
@@ -403,7 +481,7 @@ public class DownloadData extends Thread {
 			return quote;
 		}
 
-		// FiX
+		// Coronavirus Cases
 		public String getCases() {
 			Document document = null;
 			String info = "";
@@ -452,7 +530,7 @@ public class DownloadData extends Thread {
 
 		}
 
-		// FIX
+		// Depreciated-Maybe
 		public String getInfo(String ticker) {
 			Document document = null;
 			String info = "";

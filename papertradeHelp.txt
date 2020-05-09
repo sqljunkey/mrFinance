@@ -1,0 +1,25 @@
+New Paper Trade Commands (Type them anywhere)
+---------------------------------------------------------------"
+
+.openaccount                   -  Opens New Account and gives you 100,000 dollars to play with.
+.getportfolio nickname         -  Gives you the portfolio contents of any user
+.scores                        -  Gives you everyones market value + cash ranked from highest to lowest.
+.open short 3 aapl equity      -  Opens 3 short positions of the aapl stock by specifying the crypto or equity type
+.close short 3 aapl equity     -  Closes 3 short positions of aapl stock
+.open long 24 btc crypto       -  Opens 24 long positions of btc by specifying the crypto or equity type
+.close long 30 btc crypto      -  Closes 30 long positions of btc crypto
+.getbalance   		       -  Checks how much money you have left
+.darkpool-price btc crypto     -  Gives you the bid and ask price for the mrfinance darkpool crypto prices of btc
+.set long btc sl -0.1% tp 1.0% -  Sets Limits on btc with stop loss at -0.1% and take profit at 1.0%   
+.unset long btc                -  UnSets Limits on btc
+.limits                        -  Shows a list of all your limits
+.open 3 bond                   -  Shorts 3 bond at par value of 1000 dollars each using LIBOR interest rate, 
+			       -  essentially you borrowed 3,000 dollars at whatever the LIBOR rate is maximum borrowing
+			       -  of $1,000,000
+.close 3 bond 		       -  Closes bonds from oldest to newest using FIFO 
+
+
+
+You can trade forex and futures now provided you use the tickers that Yahoo Finance uses and add equity in the back.
+
+Have Fun(D)!

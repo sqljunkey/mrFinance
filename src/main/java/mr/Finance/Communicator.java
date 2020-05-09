@@ -48,7 +48,7 @@ public class Communicator extends Thread {
 	DownloadData d;
 	AccountManager am = null;
 	List<String> channels = new ArrayList<>();
-	String NickName = "mrfinance";
+	String NickName = "mrfinanceTest";
 	String Password = "";
 
 	public void addChannel(String channel) {
@@ -238,6 +238,8 @@ public class Communicator extends Thread {
 			}
 			if (message.contains(".close") && message.charAt(0) == '.' && message.charAt(1) == 'c') {
 				String[] parts = message.split("\\s");
+				Pattern p = Pattern.compile("\\.close\\s+(\\d+)\\s+bond");
+				Matcher m = p.matcher(message);
 				Integer number = 0;
 				if (parts.length == 5) {
 					try {
@@ -263,16 +265,23 @@ public class Communicator extends Thread {
 					} else {
 						sendMessage(sender, "format <.open long 3 btc crypto> / <.open short 3 aapl equity>");
 					}
-				} else {
+				}  else if(m.find()) {
+					
+					
+					sendMessage(sender, am.closeBond(sender, Integer.parseInt(m.group(1))).get(0));
+					
+				}else {
 
 					System.out.println("arg number");
-					sendMessage(sender, "format <.close long 3 btc crypto> / <.close short 3 aapl equity>");
+					sendMessage(sender, "format <.close long 3 btc crypto> / <.close short 3 aapl equity> / <.close 3 bond>");
 				}
 
 			}
 			if (message.contains(".open") && !message.contains("openaccount") && message.charAt(0) == '.'
 					&& message.charAt(1) == 'o') {
-
+				
+				Pattern p = Pattern.compile("\\.open\\s+(\\d+)\\s+bond");
+				Matcher m = p.matcher(message);
 				String[] parts = message.split("\\s");
 				Integer number = 0;
 				if (parts.length == 5) {
@@ -300,9 +309,15 @@ public class Communicator extends Thread {
 					} else {
 						sendMessage(sender, "format <.open long 3 btc crypto> / <.open short 3 aapl equity>");
 					}
-				} else {
+				} else if(m.find()) {
+					
+					
+					sendMessage(sender, am.openBond(sender, Integer.parseInt(m.group(1))).get(0));
+					
+				}
+				else {
 					System.out.println("arg number");
-					sendMessage(sender, "format <.open long 3 btc crypto> / <.open short 3 aapl equity>");
+					sendMessage(sender, "format <.open long 3 btc crypto> / <.open short 3 aapl equity>/<.open 3 bond");
 				}
 
 			}
@@ -409,6 +424,12 @@ public class Communicator extends Thread {
 				System.out.println(channel + ":" + sender + ":" + reply);
 				sendMessage(channel, sender + ":" + reply);
 
+			}
+			//New Function Testor
+			if (message.equals(".test")) {
+				
+			// System.out.println( am.closeBond("hammond", 10)) ;
+				
 			}
 			if (message.equals(".hammond")) {
 				DecimalFormat fte = new DecimalFormat("#0.00");
@@ -698,7 +719,7 @@ public class Communicator extends Thread {
 				DecimalFormat fte = new DecimalFormat("#0.00");
 				Object data[]=d.stock.getInflation();
 				
-				String reply =" Daily Consumer Price Index: ";
+				String reply =" (Test Mode)Daily Consumer Price Index: ";
 				Double price = (Double) data[0];
 				Double change= (Double) data[1];
 				
@@ -1265,7 +1286,7 @@ public class Communicator extends Thread {
 					}
 					String pe =(String) quote[4];
 					if(!pe.isEmpty()) {
-						reply+=" Pe: " + pe;
+						reply+=" P/E: " + pe;
 					}
 					
 
