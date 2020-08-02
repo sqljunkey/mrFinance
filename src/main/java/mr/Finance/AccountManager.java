@@ -26,6 +26,8 @@ import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
+
 public class AccountManager extends Thread {
 
 	DownloadData d;
@@ -179,15 +181,15 @@ public class AccountManager extends Thread {
 	// and have a monthly interest rate calculated by the
 	// Monthly Libor Rate.
 
-	public Double getBondValue(String ticker, Long startTime) {
+	public Double getBondValue(String ticker, Long startTime, Date date) {
 		Double value = -1000.0;
 
 		Double monthlyInterestRate = Double.parseDouble(ticker.replaceAll("[^0-9.-]", ""));
-		Double millisecondInterestRate = (monthlyInterestRate/100) / 2.592E9;
-;
+		Double millisecondInterestRate = (monthlyInterestRate / 100) / 2.592E9;
+		;
 
-		Long endTime = new Date().getTime();
-		
+		Long endTime = date.getTime();
+
 		value *= (1 + ((endTime - startTime) * millisecondInterestRate));
 
 		return value;
@@ -241,7 +243,7 @@ public class AccountManager extends Thread {
 
 				// Calculate bond total value.
 
-				query = "select ticker, starttime from orders where user_id='" + userId
+				query = "select ticker, starttime, order_id from orders where user_id='" + userId
 						+ "' and exchange='BOND' order by starttime asc";
 
 				rs = smt.executeQuery(query);
@@ -249,29 +251,32 @@ public class AccountManager extends Thread {
 				// Count up to the number of desired sold items.
 				int i = 0;
 
-				List<String> tickers = new ArrayList<>();
+				List<Integer> orderIdList = new ArrayList<>();
+
+				Date date = new Date();
 
 				while (rs.next() && i < number) {
 
 					String ticker = rs.getString("TICKER");
 					Timestamp ts = rs.getTimestamp("starttime");
-
+					Integer orderId = rs.getInt("ORDER_ID");
 					// add total of bonds
-					bondTotalValue += getBondValue(ticker, ts.getTime());
 
-					// Keep a list of arrays for later transaction
-					tickers.add(ticker);
+					bondTotalValue += getBondValue(ticker, ts.getTime(), date);
+
+					// Keep a list of order ids for later transaction
+					orderIdList.add(orderId);
 					// increase increment of bonds
 					i++;
 
 				}
 
-				if(tickers.size() ==0) {
-					
+				if (orderIdList.size() == 0) {
+
 					list.add("You do not hold any bonds at the moment.");
 					return list;
 				}
-				
+
 				if ((cashBalance + bondTotalValue) < 0) {
 
 					list.add("You have insufficent funds to pay bond(s) principal $" + twoDecimal.format(1000 * number)
@@ -283,18 +288,19 @@ public class AccountManager extends Thread {
 				// If suffecient funds are aviablable repay principal
 				query = "";
 
-				for (String ticker : tickers) {
+				for (Integer orderId : orderIdList) {
 
-					query += "delete from orders where ticker='" + ticker + "' and user_id='" + userId
+					query += "delete from orders where order_id='" + orderId + "' and user_id='" + userId
 							+ "' and exchange='BOND';";
 
 				}
 				query += "update user_accounts set cash_balance='" + (cashBalance + bondTotalValue)
-			 		+ "' where user_id='" + userId + "'";
+						+ "' where user_id='" + userId + "'";
 
 				smt.executeUpdate(query);
-				
-				list.add("Paid principal and interest on bonds totalling: $"+ twoDecimal.format(Math.abs(bondTotalValue)));
+
+				list.add("Paid principal and interest on bonds totalling: $"
+						+ twoDecimal.format(Math.abs(bondTotalValue)));
 
 			}
 
@@ -313,6 +319,54 @@ public class AccountManager extends Thread {
 		}
 
 		return list;
+
+	}
+
+	
+	///FIXOR
+	public void fix() {
+
+		// Open connection
+		Connection conn = null;
+		Properties connectionProps = new Properties();
+		connectionProps.put("user", user);
+		connectionProps.put("password", passwd);
+
+		try {
+
+			conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/test", connectionProps);
+			if (!conn.isClosed()) {
+
+				Statement smt = conn.createStatement();
+
+				String query = "";
+				for (int i = 0; i < 500; i++) {
+
+					query += "insert into orders(USER_ID, TICKER, EXCHANGE, HOLD_METHOD, UNITS, COST,STARTTIME ) values ('"
+							+ 10 + "'," // user id
+							+ "'LIBOR" + 0.18 + "'," // ticker name
+							+ "'BOND'," // Exchange
+							+ "'SHORT'," // Hold method
+							+ "'1'," // Number
+							+ "'-1000'," // Cost, negative 1000 dollars in this case because it's debt
+							+ "now()" // timestamp
+							+ ");";
+
+				}
+				
+				smt.executeUpdate(query);
+				
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 
 	}
 
@@ -355,6 +409,13 @@ public class AccountManager extends Thread {
 					libor = .25;
 				}
 
+				if (number == 0) {
+
+					list.add("That's an odd lot.");
+					return list;
+
+				}
+
 				if (userId == 0) {
 
 					list.add("User does not exist, you have to create a new account with .open account.");
@@ -364,31 +425,31 @@ public class AccountManager extends Thread {
 
 				// Create the queries
 				String query = "";
-				
-				//Count bond amount to see if it exceeds the borrowing limit.
-				
-				query = "select ticker from orders where user_id='"+userId+"' and exchange='BOND';";
-				
+
+				// Count bond amount to see if it exceeds the borrowing limit.
+
+				query = "select ticker from orders where user_id='" + userId + "' and exchange='BOND';";
+
 				ResultSet rs = smt.executeQuery(query);
-				
+
 				Integer bondCount = 0;
 				while (rs.next()) {
 					bondCount++;
-					
-					
+
 				}
-				
-				if((bondCount+number)>1000) {
-					
-					list.add("You cannot sell bond amount exceeding $1,000,000. Currently you have $"+twoDecimal.format(number*1000)+" sold.");
-					return list; 
+
+				if ((bondCount + number) > 1000) {
+
+					list.add("You cannot sell bond amount exceeding $1,000,000. Currently you have $"
+							+ twoDecimal.format(number * 1000) + " sold.");
+					return list;
 				}
 
 				// get Cash on Hand Balance
 
 				query = "select cash_balance from user_accounts where user_id= '" + userId + "'";
 
-				 rs = smt.executeQuery(query);
+				rs = smt.executeQuery(query);
 
 				while (rs.next()) {
 
@@ -428,7 +489,7 @@ public class AccountManager extends Thread {
 
 			}
 		} catch (Exception e) {
-            //Print any errors
+			// Print any errors
 			e.printStackTrace();
 		} finally {
 
@@ -1042,6 +1103,82 @@ public class AccountManager extends Thread {
 
 		return value;
 	}
+	
+	public List<ImmutablePair<String, Integer>> getListOfOpenTrades(String nickName){
+		
+		List<ImmutablePair<String, Integer>> pairs = new ArrayList<>();
+		
+		Connection conn = null;
+		Properties connectionProps = new Properties();
+		connectionProps.put("user", user);
+		connectionProps.put("password", passwd);
+
+		int userId = getUserId(nickName);
+		if (userId == 0) {
+
+			
+			pairs.add(new ImmutablePair <String, Integer>("User not found.",0));
+
+			return pairs;
+		}
+
+		try {
+
+			conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/test", connectionProps);
+			if (!conn.isClosed()) {
+				System.out.println("Connected to database");
+
+				try {
+					
+					String query = "select orders.ticker , orders.exchange, orders.units " + "from orders "
+							+ "inner join user_accounts " + "on user_accounts.user_id = orders.user_id  "
+							+ "where user_accounts.user_nickname='" + nickName + "'";
+					
+
+					Statement smt = conn.createStatement();
+					ResultSet rs = smt.executeQuery(query);
+					
+					while (rs.next()) {
+
+						if(rs.getDouble("UNITS")!=0.0 && !rs.getString("TICKER").contains("LIBOR")) {
+							
+							Integer units = (int)rs.getDouble("UNITS");
+							String ticker = rs.getString("TICKER");
+							pairs.add(new ImmutablePair<String, Integer>(ticker, units));
+							
+						}
+						
+						
+						
+						
+					}
+					
+					
+				} catch (Exception e) {
+					e.printStackTrace();
+
+				}
+			}
+		} catch (Exception e) {
+
+			e.printStackTrace();
+		} finally {
+
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		
+		
+		
+		return pairs; 
+				
+		
+	}
 
 	public List<String> getPortfolio(String nickName) {
 
@@ -1156,32 +1293,32 @@ public class AccountManager extends Thread {
 							marketValue += orderCost + (orderCost - (entry.getValue() * quantity));
 						}
 					}
-					
-					
-					
-					query = "select ticker, starttime from orders where user_id ='"+userId+"' and exchange='BOND'";
-					
+
+					query = "select ticker, starttime from orders where user_id ='" + userId + "' and exchange='BOND'";
+
 					rs = smt.executeQuery(query);
 					Double bondTotalValue = 0.0;
 					List<String> tickers = new ArrayList<>();
-					while(rs.next()) {
-						
+					Date date = new Date();
+					while (rs.next()) {
+
 						String ticker = rs.getString("TICKER");
 						Timestamp ts = rs.getTimestamp("STARTTIME");
-						bondTotalValue +=getBondValue(ticker, ts.getTime());
+						bondTotalValue += getBondValue(ticker, ts.getTime(), date);
 						tickers.add(ticker);
-						
+
 					}
-					
-					if(tickers.size()!=0) {
-						
-					port.add(" ");
-					port.add("debt                          ");
-					port.add("----------------------------------------------------");
-					
-					port.add("LIBOR BOND "+tickers.size()+"   -1000.0   "+ twoDecimal.format(bondTotalValue/tickers.size())+"  "
-					+formatter.format(1-(tickers.size()*-1000)/bondTotalValue)+"%");
-					
+
+					if (tickers.size() != 0) {
+
+						port.add(" ");
+						port.add("debt                          ");
+						port.add("----------------------------------------------------");
+
+						port.add("LIBOR BOND " + tickers.size() + "   -1000.0   "
+								+ twoDecimal.format(bondTotalValue / tickers.size()) + "  "
+								+ formatter.format(1 - (tickers.size() * -1000) / bondTotalValue) + "%");
+
 					}
 
 					query = "select user_accounts.cash_balance  from user_accounts where user_nickname ='" + nickName
@@ -1195,16 +1332,14 @@ public class AccountManager extends Thread {
 					}
 					port.add(" ");
 					port.add("-----------------------------------------------------");
-		
-					port.add("Cash Balance: $ " + twoDecimal.format(cash) + "            ");// (TOTAL VALUE:"+cash+")");
-					port.add("=====================================================");			
-					port.add("Total Debt: $("+twoDecimal.format(bondTotalValue)+")");
-					port.add("Total Asset: $"+twoDecimal.format(cash+marketValue));
-					port.add("=====================================================");
-					port.add("Total Equity: $ " + twoDecimal.format(cash + marketValue+bondTotalValue));
-					port.add(Double.toString(cash + marketValue+bondTotalValue));
 
-		
+					port.add("Cash Balance: $ " + twoDecimal.format(cash) + "            ");// (TOTAL VALUE:"+cash+")");
+					port.add("=====================================================");
+					port.add("Total Debt: $(" + twoDecimal.format(bondTotalValue) + ")");
+					port.add("Total Asset: $" + twoDecimal.format(cash + marketValue));
+					port.add("=====================================================");
+					port.add("Total Equity: $ " + twoDecimal.format(cash + marketValue + bondTotalValue));
+					port.add(Double.toString(cash + marketValue + bondTotalValue));
 
 				} catch (Exception e) {
 					e.printStackTrace();

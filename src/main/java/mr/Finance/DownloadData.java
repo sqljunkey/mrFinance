@@ -189,7 +189,45 @@ public class DownloadData extends Thread {
 			return prices;
 
 		}
+		
 
+		
+		public Object[] getAsset(String ticker, String quarterly) {
+			Object[] prices = { "n/a", "n/a", "n/a", "n/a", "n/a" };
+			// String url = "https://www.marketwatch.com/investing/stock/" + ticker +
+			// "/financials/balance-sheet";
+
+			try {
+				URL url = new URL("https://www.marketwatch.com/investing/stock/" + ticker + "/financials/balance-sheet/"+quarterly);
+				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
+				Elements info = doc.select("tr");
+				String freecashflow = "";
+				for (Element i : info) {
+
+					if (i.text().startsWith("Total Assets")) {
+						freecashflow = i.text();
+						System.out.println(i.text());
+						break;
+					}
+				}
+
+				String quotes[] = freecashflow.replaceAll("Total Assets ", "").split("\\s");
+
+				int f = 0;
+				for (int i = quotes.length - 1; i >= 0; i--) {
+					prices[f] = quotes[i];
+					f++;
+
+				}
+
+			} catch (Exception e) {
+
+			}
+
+			return prices;
+
+		}
+		
 		public Object[] getCrypto(String ticker) {
 			Document document = null;
 			Object price[] = { 0.0, 0.0, "" };
@@ -729,7 +767,7 @@ public class DownloadData extends Thread {
 
 				for (Element f : info) {
 
-					if (!f.select("title").text().contains("Google News") && headlines.size() < 3) {
+					if (!f.select("title").text().contains("Google News") ) {
 
 						DateTime nowTime = new DateTime();
 						String date = f.select("pubDate").text();

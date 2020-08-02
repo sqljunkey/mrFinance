@@ -48,9 +48,10 @@ public class Communicator extends Thread {
 	DownloadData d;
 	AccountManager am = null;
 	List<String> channels = new ArrayList<>();
-	String NickName = "mrfinanceTest";
+	String NickName = "mrfinance";
 	String Password = "";
-
+	Trader t = null;
+	
 	public void addChannel(String channel) {
 
 		channels.add(channel);
@@ -428,7 +429,7 @@ public class Communicator extends Thread {
 			//New Function Testor
 			if (message.equals(".test")) {
 				
-			// System.out.println( am.closeBond("hammond", 10)) ;
+			//am.fix();
 				
 			}
 			if (message.equals(".hammond")) {
@@ -505,31 +506,8 @@ public class Communicator extends Thread {
 
 			if (message.contains(".papertrade")) {
 
-				sendMessage(sender, " New Paper Trade Commands (Type them anywhere) ");
-				sendMessage(sender, "---------------------------------------------------------------");
-				sendMessage(sender, "   ");
 
-				sendMessage(sender,
-						".openaccount                   -  Opens New Account and gives you 100,000 dollars to play with.");
-				sendMessage(sender, ".getportfolio nickname         -  Gives you the portfolio contents of any user");
-				sendMessage(sender,
-						".scores                        -  Gives you everyones market value + cash ranked from highest to lowest.");
-				sendMessage(sender,
-						".open short 3 aapl equity      -  Opens 3 short positions of the aapl stock by specifying the crypto or equity type");
-				sendMessage(sender, ".close short 3 aapl equity     -  Closes 3 short positions of aapl stock");
-				sendMessage(sender,
-						".open long 24 btc crypto       -  Opens 24 long positions of btc by specifying the crypto or equity type");
-				sendMessage(sender, ".close long 30 btc crypto      -  Closes 30 long positions of btc crypto");
-				sendMessage(sender, ".getbalance   			        -  Checks how much money you have left");
-				sendMessage(sender,
-						".darkpool-price btc crypto     -  Gives you the bid and ask price for the mrfinance darkpool crypto prices of btc");
-				sendMessage(sender,
-						".set long btc sl -0.1% tp 1.0% -  Sets Limits on btc with stop loss at -0.1% and take profit at 1.0%   ");
-				sendMessage(sender, ".unset long btc                -  UnSets Limits on btc");
-				sendMessage(sender, ".limits                        -  Shows a list of all your limits");
-				sendMessage(sender, "   ");
-				sendMessage(sender,
-						"You can trade forex and futures now provided you use the tickers that Yahoo Finance uses and add equity in the back");
+				sendMessage(sender, "Check commands at: https://github.com/sqljunkey/mrFinance/blob/master/papertradeHelp.txt");
 
 			}
 
@@ -1110,7 +1088,10 @@ public class Communicator extends Thread {
 				List<String> headline = d.stock.getHeadline(parts[1]);
 				String reply = "";
 
+				int i = 0;
 				for (String head : headline) {
+					if(i>2) {break;}
+					i++;
 					sendMessage(channel, head);
 				}
 
@@ -1220,6 +1201,19 @@ public class Communicator extends Thread {
 				}
 				reply = reply.substring(0, reply.lastIndexOf(","));
 				sendMessage(channel, sender + ":" + parts[1] + " Free Cash Flow: " + reply);
+				reply = "";
+				
+				if(message.contains(".fundamentalsq")){
+					quarter ="/quarter";
+				}
+				Object quotes4[] = d.stock.getAsset(parts[1],quarter);
+
+				for (int i = 0; i < quotes4.length; i++) {
+					reply += " " + quotes4[i] + ",";
+				}
+				reply = reply.substring(0, reply.lastIndexOf(","));
+				sendMessage(channel, sender + ":" + parts[1] + " Total Asset: " + reply);
+
 
 			}
 
@@ -1353,8 +1347,16 @@ public class Communicator extends Thread {
 
 		d = new DownloadData();
 		d.start();
+		
+		
+		//Start Account Manager
+		
 		am = new AccountManager(d);
 		am.start();
+		
+		//Start Trader
+		
+		t = new Trader(am);
 
 		// Load Password
 		try {
