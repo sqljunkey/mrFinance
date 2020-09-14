@@ -1,38 +1,35 @@
 package mr.Finance;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.net.URL;
 
 import java.nio.charset.Charset;
-import java.text.SimpleDateFormat;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-
-import java.util.Date;
-import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.joda.time.DateTime;
 import org.joda.time.LocalDate;
 
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.json.JSONArray;
-import org.json.JSONObject;
+
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.openqa.selenium.WebDriver;
 
 public class DownloadData extends Thread {
 
@@ -46,7 +43,7 @@ public class DownloadData extends Thread {
 	public static class Stock {
 		List<Data> cache = new CopyOnWriteArrayList();
 
-		public Object[] getFCF(String ticker,String quarterly) {
+		public Object[] getFCF(String ticker, String quarterly) {
 			Object[] prices = { "n/a", "n/a", "n/a", "n/a", "n/a" };
 			// String url = "https://www.marketwatch.com/investing/stock/" + ticker +
 			// "/financials/cash-flow";
@@ -55,7 +52,8 @@ public class DownloadData extends Thread {
 				// driver.get(url);
 				// Document doc = Jsoup.parse(driver.getPageSource());
 
-				URL url = new URL("https://www.marketwatch.com/investing/stock/" + ticker + "/financials/cash-flow"+quarterly);
+				URL url = new URL(
+						"https://www.marketwatch.com/investing/stock/" + ticker + "/financials/cash-flow" + quarterly);
 				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
 
 				Elements info = doc.select("tr");
@@ -91,7 +89,8 @@ public class DownloadData extends Thread {
 			// "/financials/cash-flow";
 
 			try {
-				URL url = new URL("https://www.marketwatch.com/investing/stock/" + ticker + "/financials/cash-flow"+quarterly);
+				URL url = new URL(
+						"https://www.marketwatch.com/investing/stock/" + ticker + "/financials/cash-flow" + quarterly);
 				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
 				Elements info = doc.select("tr");
 				String freecashflow = "";
@@ -120,13 +119,14 @@ public class DownloadData extends Thread {
 
 		}
 
-		public Object[] getIncome(String ticker,String quarterly) {
+		public Object[] getIncome(String ticker, String quarterly) {
 			Object[] prices = { "n/a", "n/a", "n/a", "n/a", "n/a" };
 			// String url = "https://www.marketwatch.com/investing/stock/" + ticker +
 			// "/financials/";
 
 			try {
-				URL url = new URL("https://www.marketwatch.com/investing/stock/" + ticker + "/financials/cash-flow"+quarterly);
+				URL url = new URL(
+						"https://www.marketwatch.com/investing/stock/" + ticker + "/financials/cash-flow" + quarterly);
 				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
 				Elements info = doc.select("tr");
 				String freecashflow = "";
@@ -155,13 +155,98 @@ public class DownloadData extends Thread {
 
 		}
 
+		// https://finance.yahoo.com/quote/ETH-USD/history?p=ETH-USD
+
+		public List<Double> getHistorical(String ticker) {
+
+			Long startTime = Calendar.getInstance().getTimeInMillis()/1000;
+			Long endTime = startTime - 1000000;
+			List<Double> adjustedClose = new ArrayList<>();
+
+			try {
+
+				// https://query1.finance.yahoo.com/v7/finance/download/ETH-USD?period1=1566568826&period2=1598191226&interval=1d&events=history
+				FileUtils.copyURLToFile(
+						new URL("https://query1.finance.yahoo.com/v7/finance/download/" + ticker + "?period1="
+								+ endTime + "&period2=" + startTime + "&interval=1d&events=history")
+						
+						,
+						new File("./" + ticker + ".cvs"), 2000, 2000);
+
+			} catch (Exception e) {
+
+				e.printStackTrace();
+
+			}
+
+			// Read Downloaded File
+
+			BufferedReader csvReader = null;
+			try {
+
+				csvReader = new BufferedReader(new FileReader("./" + ticker + ".cvs"));
+				String row;
+				while ((row = csvReader.readLine()) != null) {
+					String[] data = row.split(",");
+					
+					//Copy Adjusted
+					
+					try {
+						
+						
+					adjustedClose.add(Double.parseDouble(data[5]));
+					
+					}
+					catch(Exception e) {
+						
+						//e.printStackTrace();
+					}
+
+					
+					
+					
+					
+					
+				}
+			} catch (Exception e) {
+
+				e.printStackTrace();
+			} finally {
+				try {
+					csvReader.close();
+				} catch (Exception e) {
+					e.printStackTrace();
+
+				}
+			}
+
+			// Delete Downloaded File
+
+			File myObj = new File("./" + ticker + ".cvs");
+			if (myObj.delete()) {
+				System.out.println("Deleted the file: " + myObj.getName());
+			} else {
+				System.out.println("Failed to delete the file.");
+			}
+
+			
+			for(Double price: adjustedClose)
+			{
+				
+				System.out.println(price);
+			}
+			
+			return adjustedClose;
+
+		}
+
 		public Object[] getRev(String ticker, String quarterly) {
 			Object[] prices = { "n/a", "n/a", "n/a", "n/a", "n/a" };
 			// String url = "https://www.marketwatch.com/investing/stock/" + ticker +
 			// "/financials/";
 
 			try {
-				URL url = new URL("https://www.marketwatch.com/investing/stock/" + ticker + "/financials/"+quarterly);
+				URL url = new URL("https://www.marketwatch.com/investing/stock/" + ticker + "/financials/" + quarterly);
 				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
 				Elements info = doc.select("tr");
 				String freecashflow = "";
@@ -189,16 +274,15 @@ public class DownloadData extends Thread {
 			return prices;
 
 		}
-		
 
-		
 		public Object[] getAsset(String ticker, String quarterly) {
 			Object[] prices = { "n/a", "n/a", "n/a", "n/a", "n/a" };
 			// String url = "https://www.marketwatch.com/investing/stock/" + ticker +
 			// "/financials/balance-sheet";
 
 			try {
-				URL url = new URL("https://www.marketwatch.com/investing/stock/" + ticker + "/financials/balance-sheet/"+quarterly);
+				URL url = new URL("https://www.marketwatch.com/investing/stock/" + ticker + "/financials/balance-sheet/"
+						+ quarterly);
 				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
 				Elements info = doc.select("tr");
 				String freecashflow = "";
@@ -227,7 +311,7 @@ public class DownloadData extends Thread {
 			return prices;
 
 		}
-		
+
 		public Object[] getCrypto(String ticker) {
 			Document document = null;
 			Object price[] = { 0.0, 0.0, "" };
@@ -353,115 +437,94 @@ public class DownloadData extends Thread {
 			return quote;
 
 		}
-		
-		//Get Libor Rate Data
+
+		// Get Libor Rate Data
 		public Double[] getLibor() {
-			Double price[] = { 0.0, //1 month libor rate
-					           0.0, //3 month libor rate
-					           0.0, //6 month libor rate
-					           0.0 //1 year  libor rate
-					             };
-			
-				
-			
+			Double price[] = { 0.0, // 1 month libor rate
+					0.0, // 3 month libor rate
+					0.0, // 6 month libor rate
+					0.0 // 1 year libor rate
+			};
+
 			try {
-				
 
 				URL url = new URL("https://www.bankrate.com/rates/interest-rates/libor.aspx");
 				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
-				
-				
-				
+
 				Pattern oneMonth = Pattern.compile("1\\s+Month\\s+LIBOR\\s+Rate\\s+(\\d+\\.\\d+)");
 				Pattern threeMonth = Pattern.compile("3\\s+Month\\s+LIBOR\\s+Rate\\s+(\\d+\\.\\d+)");
 				Pattern sixMonth = Pattern.compile("6\\s+Month\\s+LIBOR\\s+Rate\\s+(\\d+\\.\\d+)");
 				Pattern oneYear = Pattern.compile("1\\s+Year\\s+LIBOR\\s+Rate\\s+(\\d+\\.\\d+)");
-				
-				//Check For one Month Libor Rate
+
+				// Check For one Month Libor Rate
 				Matcher m = oneMonth.matcher(doc.text());
-				
-				if(m.find()) {
-					
+
+				if (m.find()) {
+
 					price[0] = Double.parseDouble(m.group(1));
-					
-					
-					
-					}
-				
-				//Check for three Month Libor Rate
-			     m = threeMonth.matcher(doc.text());
-				
-				if(m.find()) {
-					
+
+				}
+
+				// Check for three Month Libor Rate
+				m = threeMonth.matcher(doc.text());
+
+				if (m.find()) {
+
 					price[1] = Double.parseDouble(m.group(1));
-					
-					}
-				
-				//Check for six Month Libor Rate
-				 m = sixMonth.matcher(doc.text());
-				 
-				if(m.find()) {
-					
+
+				}
+
+				// Check for six Month Libor Rate
+				m = sixMonth.matcher(doc.text());
+
+				if (m.find()) {
+
 					price[2] = Double.parseDouble(m.group(1));
-					}
-				
-				//Check for one Year Libor Rate
+				}
+
+				// Check for one Year Libor Rate
 				m = oneYear.matcher(doc.text());
-				
-				if(m.find()) {
+
+				if (m.find()) {
 					price[3] = Double.parseDouble(m.group(1));
-					
-					}
-				
-				
-			}catch(Exception e) {
-				
+
+				}
+
+			} catch (Exception e) {
+
 				e.printStackTrace();
-				
+
 			}
-			
-			
-			
-			
-			
-			
-			
-			
-			
+
 			return price;
-					
-			
+
 		}
+
 		public Object[] getYield(String ticker) {
 
 			Object price[] = { 0.0, 0.0 };
 			Pattern p = Pattern.compile("Yield(\\s+\\d+\\.\\d+\\%)\\s+(-?\\d+\\.\\d+)\\s+Price");
 			try {
-				
 
 				URL url = new URL("https://quotes.wsj.com/bond/BX/TMUBMUSD" + ticker);
 				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
-				
 
 				Matcher m = p.matcher(doc.text());
-				//System.out.println(doc.text());
-				if(m.find()) {
-					
+				// System.out.println(doc.text());
+				if (m.find()) {
+
 					System.out.println(m.group(0));
 					System.out.println(m.group(1));
 					System.out.println(m.group(2));
-					price[0]=Double.parseDouble(m.group(1).replaceAll("[^0-9.]",""));
-					price[1]=Double.parseDouble(m.group(2).replaceAll("[^0-9.]",""));
-					
+					price[0] = Double.parseDouble(m.group(1).replaceAll("[^0-9.]", ""));
+					price[1] = Double.parseDouble(m.group(2).replaceAll("[^0-9.]", ""));
+
 				}
-				
 
 			} catch (Exception e) {
 
 				e.printStackTrace();
 			}
-
-			
 
 			return price;
 		}
@@ -677,8 +740,8 @@ public class DownloadData extends Thread {
 					0.0, // 0. Price
 					0.0, // 1. Percentage
 					"", // 2. Company Name
-					"", //Div Yield
-					"" //Pe Ratio
+					"", // Div Yield
+					"" // Pe Ratio
 			};
 
 			try {
@@ -719,29 +782,27 @@ public class DownloadData extends Thread {
 					System.out.println(m.group(0).replaceAll("\\(\\w+\\)", ""));
 
 				}
-				
-				
-				
-				//Get Divident Yield
-				Pattern dividendYield = Pattern.compile("Dividend\\s+\\&\\s+Yield\\s+\\d+\\.\\d+\\s+\\((\\d+\\.\\d+\\%)\\)");
-				
-				m= dividendYield.matcher(document.text());
-				
-				if(m.find()) {
-					price[3]=m.group(1);
-					
+
+				// Get Divident Yield
+				Pattern dividendYield = Pattern
+						.compile("Dividend\\s+\\&\\s+Yield\\s+\\d+\\.\\d+\\s+\\((\\d+\\.\\d+\\%)\\)");
+
+				m = dividendYield.matcher(document.text());
+
+				if (m.find()) {
+					price[3] = m.group(1);
+
 				}
-				
-				//Get Divident Yield
+
+				// Get Divident Yield
 				Pattern peRatio = Pattern.compile("PE\\s+Ratio\\s+\\(TTM\\)\\s+(\\d+\\.\\d+)");
-				
-				m= peRatio.matcher(document.text());
-				
-				if(m.find()) {
-					price[4]=m.group(1);
-					
+
+				m = peRatio.matcher(document.text());
+
+				if (m.find()) {
+					price[4] = m.group(1);
+
 				}
-				
 
 			} catch (Exception e) {
 				e.printStackTrace();
@@ -767,7 +828,7 @@ public class DownloadData extends Thread {
 
 				for (Element f : info) {
 
-					if (!f.select("title").text().contains("Google News") ) {
+					if (!f.select("title").text().contains("Google News")) {
 
 						DateTime nowTime = new DateTime();
 						String date = f.select("pubDate").text();
@@ -781,7 +842,7 @@ public class DownloadData extends Thread {
 
 						// System.out.println(now +" "+ printed+" "+dater);
 
-						if (now.compareTo(printed) == 0)
+						if (now.compareTo(printed) == 0 )
 							headlines.add(dater + " :" + f.select("title").text());
 
 					}
@@ -817,15 +878,15 @@ public class DownloadData extends Thread {
 		public Object[] getInflation() {
 
 			// Final Object sent to caller
-			Object[] data = {0.0, 0.0};
+			Object[] data = { 0.0, 0.0 };
 
 			// List of website prices
 			List<List<String>> urlList = new ArrayList<>();
 
 			// Total Price Index Tracker
 			Double consumerPriceIndex = 0.0;
-			
-			//Old Consumer Data
+
+			// Old Consumer Data
 			Double oldConsumerPriceIndexData = 0.0;
 
 			// All price finder regex
@@ -834,7 +895,7 @@ public class DownloadData extends Thread {
 			// Load list of links if an error has occured fuction will return a null object
 			// array
 			// Which means it will not print anything
-			
+
 			try {
 				FileInputStream fstream = new FileInputStream("./consumerpriceindextracker.lst");
 				BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
@@ -899,11 +960,8 @@ public class DownloadData extends Thread {
 
 						while (m.find()) {
 
-							
-							
-								priceTotal += Double.parseDouble(m.group(0).replaceAll("[^0-9.]", ""));
-								count++;
-							
+							priceTotal += Double.parseDouble(m.group(0).replaceAll("[^0-9.]", ""));
+							count++;
 
 						}
 					} catch (Exception e) {
@@ -917,13 +975,13 @@ public class DownloadData extends Thread {
 				Double groupAveragePrice = (priceTotal / count);
 
 				consumerPriceIndex += (2000 / urlList.size()) / groupAveragePrice;
-			
+
 				System.out.println("Running Power: " + consumerPriceIndex);
 
 			}
-			
-			data[0] = consumerPriceIndex; 
-			data[1] = Math.log(consumerPriceIndex/oldConsumerPriceIndexData)*100;
+
+			data[0] = consumerPriceIndex;
+			data[1] = Math.log(consumerPriceIndex / oldConsumerPriceIndexData) * 100;
 			return data;
 		}
 

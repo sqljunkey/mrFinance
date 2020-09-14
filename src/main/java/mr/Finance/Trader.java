@@ -11,13 +11,16 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 //Papers 
 
 // https://jpm.pm-research.com/content/38/1/110.short
 // https://www.tandfonline.com/doi/abs/10.2469/faj.v57.n3.2449
-
+//https://www.sciencedirect.com/science/article/abs/pii/S1568494610000621
+//https://www.sciencedirect.com/science/article/abs/pii/S1386418199000129
 
 public class Trader {
 
@@ -26,6 +29,7 @@ public class Trader {
 
 //Trader Name
 	String trader = "mrfinance";
+	List<HistoricalData> data = new ArrayList<>();
 
 //Constructor		
 	public Trader(AccountManager am) {
@@ -33,81 +37,131 @@ public class Trader {
 		this.am = am;
 	}
 
-//// Load List of stocks and check all of them against RSS Feed for news and
-	//// return a list from most RSS Feeds to last.
+	// Class Ticker with Prices
 
-	private List<ImmutablePair<Integer, String>> getNews() {
+	class HistoricalData {
+		String ticker;
+		List<Double> adjustedPrices = new ArrayList<>();
 
-		// Create Data Downloader
-		DownloadData d = new DownloadData();
+		public HistoricalData(String ticker) {
 
-		// Load List of stocks from file
+			DownloadData d = new DownloadData();
+			this.ticker = ticker;
+			this.adjustedPrices = d.stock.getHistorical(ticker);
 
-		List<String> ticker = new ArrayList<>();
+		}
+
+		double getTotalReturn() {
+
+			return adjustedPrices.get(adjustedPrices.size() - 1) / adjustedPrices.get(0) - 1;
+
+		}
+
+		double[] getReturns() {
+
+			List<Double> returns = new ArrayList<>();
+
+			Double previous = adjustedPrices.get(0);
+
+			for (int i = 1; i < adjustedPrices.size(); i++) {
+
+				returns.add(Math.log(previous / adjustedPrices.get(i)));
+			}
+
+			Double[] data = returns.toArray(new Double[returns.size()]);
+
+			return ArrayUtils.toPrimitive(data);
+		}
+
+	}
+
+	// Data List
+
+	// Open stocks from List
+
+	List<HistoricalData> openStocks() {
+		List<HistoricalData> data = new ArrayList<>();
 		try {
-			FileInputStream fstream = new FileInputStream("./sp500.lst");
+			FileInputStream fstream = new FileInputStream("./trade.lst");
 			BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
 
 			String strLine;
 
 			while ((strLine = br.readLine()) != null) {
 
-				ticker.add(strLine);
+				data.add(new HistoricalData(strLine));
 			}
 
 			br.close();
 		} catch (Exception e) {
 			e.printStackTrace();
-
 		}
 
-		// Get all head lines for each ticket
-		List<ImmutablePair<Integer, String>> pairs = new ArrayList<ImmutablePair<Integer, String>>();
-		for (String tick : ticker) {
-			
-			System.out.print("Getting News "+tick+ ".....");
-		
-			Integer size = d.stock.getHeadline(tick).size();
+		return data;
+	}
 
+	// Co-Variance Analysis get top most uncorrelated stocks with the SP500
 
-			System.out.println(size+ " articles found.");
-			
-			pairs.add(new ImmutablePair<>(size, tick));
+	List<HistoricalData> marketCorrelation(List<HistoricalData> data, Double threshold) {
 
-		}
+		List<HistoricalData> newData = new ArrayList<>();
+		PearsonsCorrelation p = new PearsonsCorrelation();
+		HistoricalData SP = new HistoricalData("spy");
 
-		// Sort Pair
+		for (HistoricalData stock : data) {
 
-		pairs.sort(new Comparator<ImmutablePair>() {
-			@Override
-			public int compare(ImmutablePair p1, ImmutablePair p2) {
+			try {
+				Double corr = p.correlation(SP.getReturns(), stock.getReturns());
 
-				if ((int) p1.getLeft() > (int) p2.getLeft()) {
+				System.out.println("Correlation: " + stock.ticker + " : " + corr);
 
-					return -1;
-				} else if ((int) p2.getLeft() > (int) p1.getLeft()) {
+				if (corr < threshold) {
 
-					return 1;
+					newData.add(stock);
+
 				}
+			} catch (Exception e) {
 
-				return 0;
-
+				e.printStackTrace();
 			}
-		});
-
-		// Print Pair
-
-		for (ImmutablePair pair : pairs) {
-
-			System.out.println((int) pair.getLeft() + " " + (String) pair.getRight());
 
 		}
 
-		// Return Pair
-
-		return pairs;
+		return newData;
 
 	}
+
+	// Get total Return per period
+
+	List<HistoricalData> getTotalReturn(List<HistoricalData> data, Double threshold) {
+
+		List<HistoricalData> newData = new ArrayList<>();
+
+		for (HistoricalData stock : data) {
+
+			Double totalReturn = stock.getTotalReturn();
+
+			if (totalReturn > threshold) {
+				System.out.println("Total Return: " + stock.ticker + " : " + totalReturn);
+				newData.add(stock);
+
+			}
+		}
+
+		return newData;
+
+	}
+
+	// Search Trades
+	void searchTrades() {
+		
+		System.out.println("Start Search");
+
+		data = getTotalReturn(openStocks(), 0.015);
+
+	}
+	
+	
 
 	// Open top 10 picks
 
@@ -117,22 +171,22 @@ public class Trader {
 
 		DownloadData d = new DownloadData();
 
-		// Open List
-		List<ImmutablePair<Integer, String>> pairs = getNews();
-
+		
+	
 		// Allocate Balance
-		Double allocation = am.getCashBalance(trader) / 20;
+		Double allocation = am.getCashBalance(trader) / data.size();
+		System.out.println("System Allocation : " + allocation);
 		// Go thru list and open trades.
-		for (int i = 0; i < 20; i++) {
+		for (HistoricalData stock : data) {
+			try {
+				Double price = (Double) d.stock.getPrice((String) stock.ticker)[0];
 
-			ImmutablePair<Integer, String> pair = pairs.get(i);
+				Integer number = (int) Math.round(allocation / price);
 
-			Double price = (Double) d.stock.getPrice((String) pair.getRight())[0];
-
-			Integer number = (int) Math.round(allocation / price);
-
-			am.openPosition(trader, number, (String) pair.getRight(), "equity", "short");
-
+				am.openPosition(trader, number, (String) stock.ticker, "equity", "long");
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 		}
 
 	}
@@ -155,7 +209,7 @@ public class Trader {
 
 		for (ImmutablePair<String, Integer> pair : pairs) {
 
-			am.closePosition(trader, (int) pair.getRight(), (String) pair.getLeft(), "equity", "short");
+			am.closePosition(trader, (int) pair.getRight(), (String) pair.getLeft(), "equity", "long");
 
 		}
 
@@ -174,26 +228,35 @@ public class Trader {
 	void startTradeTimers() {
 
 		// Create timer Deamons for open and close trades.
+		
+		
 
+		TimeDeamon search = new TimeDeamon();
 		TimeDeamon open = new TimeDeamon();
 		TimeDeamon close = new TimeDeamon();
 
 		// Set Timers
+		Calendar searchTime = Calendar.getInstance();
 		Calendar openTime = Calendar.getInstance();
 		Calendar closeTime = Calendar.getInstance();
 
+		// Search Time
+
+		String searchTimeString = "2000-09-01 05:40:00";
+
 		// Open Time
 
-		String openTimeString = "2000-09-01 09:30:00";
+		String openTimeString = "2000-09-01 09:00:00";
 
 		// Close time
 
-		String closeTimeString = "2000-09-01 14:45:00";
+		String closeTimeString = "2000-09-01 15:15:00";
 
 		SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
 
 		try {
 
+			searchTime.setTime(format1.parse(searchTimeString));
 			openTime.setTime(format1.parse(openTimeString));
 			closeTime.setTime(format1.parse(closeTimeString));
 
@@ -202,6 +265,17 @@ public class Trader {
 			e.printStackTrace();
 		}
 
+		// Set Search Trade Timer
+
+		search.DailyRunnerDaemon(searchTime, new Runnable() {
+
+			@Override
+			public void run() {
+				
+				searchTrades();
+			}
+
+		}, "Searching in the Morning");
 		// Set Open Trade Timer
 
 		open.DailyRunnerDaemon(openTime, new Runnable() {
@@ -223,10 +297,9 @@ public class Trader {
 			}
 
 		}, "Closing for the day");
-		
-		
-		//Start timers.
-		
+
+		// Start timers.
+		search.start();
 		open.start();
 		close.start();
 
