@@ -22,36 +22,76 @@ import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 //https://www.sciencedirect.com/science/article/abs/pii/S1568494610000621
 //https://www.sciencedirect.com/science/article/abs/pii/S1386418199000129
 
-public class Trader {
+public class Trader extends Thread {
 
 //Account Manager Instance
 	AccountManager am = null;
 
 //Trader Name
 	String trader = "mrfinance";
+
 	List<HistoricalData> data = new ArrayList<>();
+	List<HistoricalData> tradeList = new ArrayList<>();
+
+	Long milliseconds = 0L;
 
 //Constructor		
-	public Trader(AccountManager am) {
-
+	public Trader(AccountManager am, Long milliseconds) {
+		this.milliseconds = milliseconds;
 		this.am = am;
 	}
 
 	// Class Ticker with Prices
 
 	class HistoricalData {
+
 		String ticker;
 		List<Double> adjustedPrices = new ArrayList<>();
+		DownloadData d = new DownloadData();
+		Double wins = 0.0;
+		Double plays = 0.0;
 
 		public HistoricalData(String ticker) {
 
-			DownloadData d = new DownloadData();
 			this.ticker = ticker;
-			this.adjustedPrices = d.stock.getHistorical(ticker);
+			Double price = (Double) d.stock.getPrice(ticker)[0];
+			this.adjustedPrices.add(price);
+			this.adjustedPrices.add(price);
 
 		}
 
+		void increaseWins() {
+
+			wins += 1.0;
+		}
+
+		void increasePlays() {
+
+			plays += 1.0;
+
+		}
+		
+		Double getWinRate() {
+			
+			return wins/plays;
+			
+		}
+
+		void pushData() {
+			// Copy Last
+			
+			Double price = adjustedPrices.get(adjustedPrices.size() - 1);
+			adjustedPrices.clear();
+			
+			adjustedPrices.add(price);
+			adjustedPrices.add((Double) d.stock.getPrice(ticker)[0]);
+			
+		}
+
 		double getTotalReturn() {
+
+			System.out.println(adjustedPrices.get(adjustedPrices.size() - 1) + " " + adjustedPrices.get(0) + " "
+					+ adjustedPrices.size());
 
 			return adjustedPrices.get(adjustedPrices.size() - 1) / adjustedPrices.get(0) - 1;
 
@@ -80,6 +120,7 @@ public class Trader {
 	// Open stocks from List
 
 	List<HistoricalData> openStocks() {
+
 		List<HistoricalData> data = new ArrayList<>();
 		try {
 			FileInputStream fstream = new FileInputStream("./trade.lst");
@@ -98,6 +139,16 @@ public class Trader {
 		}
 
 		return data;
+	}
+
+	public void updateStocks() {
+
+		for (HistoricalData dat : data) {
+
+			dat.pushData();
+
+		}
+
 	}
 
 	// Co-Variance Analysis get top most uncorrelated stocks with the SP500
@@ -142,7 +193,10 @@ public class Trader {
 			Double totalReturn = stock.getTotalReturn();
 
 			if (totalReturn > threshold) {
+
+				
 				System.out.println("Total Return: " + stock.ticker + " : " + totalReturn);
+				stock.increasePlays();
 				newData.add(stock);
 
 			}
@@ -154,14 +208,15 @@ public class Trader {
 
 	// Search Trades
 	void searchTrades() {
-		
+
 		System.out.println("Start Search");
 
-		data = getTotalReturn(openStocks(), 0.015);
+		updateStocks();
+		tradeList.clear();
+		tradeList = getTotalReturn(data, 0.000);
+		System.out.println(data.size());
 
 	}
-	
-	
 
 	// Open top 10 picks
 
@@ -171,21 +226,21 @@ public class Trader {
 
 		DownloadData d = new DownloadData();
 
-		
-	
-		// Allocate Balance
-		Double allocation = am.getCashBalance(trader) / data.size();
-		System.out.println("System Allocation : " + allocation);
-		// Go thru list and open trades.
-		for (HistoricalData stock : data) {
-			try {
-				Double price = (Double) d.stock.getPrice((String) stock.ticker)[0];
+		if (tradeList.size() > 0) {
+			// Allocate Balance
+			Double allocation = am.getCashBalance(trader) / tradeList.size();
+			System.out.println("System Allocation : " + allocation);
+			// Go thru list and open trades.
+			for (HistoricalData stock : tradeList) {
+				try {
+					Double price = (Double) d.stock.getPrice((String) stock.ticker)[0];
 
-				Integer number = (int) Math.round(allocation / price);
+					Integer number = (int) (Math.round(allocation / price) * .8);
 
-				am.openPosition(trader, number, (String) stock.ticker, "equity", "long");
-			} catch (Exception e) {
-				e.printStackTrace();
+					am.openPosition(trader, number, (String) stock.ticker, "equity", "long");
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
 			}
 		}
 
@@ -203,6 +258,27 @@ public class Trader {
 
 			System.out.println("Closing " + (int) pair.getRight() + " " + (String) pair.getLeft() + "....");
 
+		}
+		
+		//Add to List
+		for(HistoricalData stock: data){
+			
+			DownloadData d = new DownloadData();
+			
+			for (ImmutablePair<String, Integer> pair : pairs) {
+			
+				if(((String) pair.getLeft()).equals(stock.ticker)) {
+					
+					if(stock.adjustedPrices.get(1)<(Double) d.stock.getPrice(stock.ticker)[0]) {
+						
+						stock.increaseWins();
+					}
+				}
+				
+				
+				
+			}
+			
 		}
 
 		// Close all trades one by one
@@ -227,81 +303,44 @@ public class Trader {
 
 	void startTradeTimers() {
 
-		// Create timer Deamons for open and close trades.
-		
-		
+		data.clear();
+		data = openStocks();
 
-		TimeDeamon search = new TimeDeamon();
-		TimeDeamon open = new TimeDeamon();
-		TimeDeamon close = new TimeDeamon();
+		this.start();
 
-		// Set Timers
-		Calendar searchTime = Calendar.getInstance();
-		Calendar openTime = Calendar.getInstance();
-		Calendar closeTime = Calendar.getInstance();
+	}
 
-		// Search Time
-
-		String searchTimeString = "2000-09-01 05:40:00";
-
-		// Open Time
-
-		String openTimeString = "2000-09-01 09:00:00";
-
-		// Close time
-
-		String closeTimeString = "2000-09-01 15:15:00";
-
-		SimpleDateFormat format1 = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-
-		try {
-
-			searchTime.setTime(format1.parse(searchTimeString));
-			openTime.setTime(format1.parse(openTimeString));
-			closeTime.setTime(format1.parse(closeTimeString));
-
-		} catch (Exception e) {
-
-			e.printStackTrace();
-		}
-
-		// Set Search Trade Timer
-
-		search.DailyRunnerDaemon(searchTime, new Runnable() {
-
-			@Override
-			public void run() {
-				
+	public void run() {
+		int i = 0;
+		while (true) {
+			if (i != 0) {
 				searchTrades();
-			}
-
-		}, "Searching in the Morning");
-		// Set Open Trade Timer
-
-		open.DailyRunnerDaemon(openTime, new Runnable() {
-
-			@Override
-			public void run() {
 				openTrades();
-			}
-
-		}, "Opening in the Morning");
-
-		// Set Close Trade Timer
-
-		close.DailyRunnerDaemon(closeTime, new Runnable() {
-
-			@Override
-			public void run() {
+			} else {
+				searchTrades();
 				closeTrades();
+				i++;
+
 			}
 
-		}, "Closing for the day");
+			System.out.println("Trading...");
+			try {
+				Thread.sleep(1000 * 60 * 15);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 
-		// Start timers.
-		search.start();
-		open.start();
-		close.start();
+			closeTrades();
+			
+			
+			for(HistoricalData stock: data) {
+				
+				System.out.println(stock.ticker+" wins:  "+stock.wins+"  played:"+stock.plays+" winrate:"+ stock.getWinRate());
+				
+			}
+
+		}
 
 	}
 

@@ -46,7 +46,7 @@ public class Communicator extends Thread {
 	List<String> channels = new ArrayList<>();
 	String NickName = "mrfinance";
 	String Password = "";
-	Trader t = null;
+	List<Trader> t = new ArrayList<>();
 	
 	public void addChannel(String channel) {
 
@@ -1352,8 +1352,12 @@ public class Communicator extends Thread {
 		
 		//Start Trader
 		
-		t = new Trader(am);
-
+		Long hour = 1000*60*60L;
+		//Long twohour =2* 1000*60*60L;
+		//Long threehour =3* 1000*60*60L;
+		t.add( new Trader(am, hour));
+		//t.add( new Trader(am, twohour));
+		//t.add( new Trader(am, threehour));
 		// Load Password
 		try {
 			FileInputStream fstream = new FileInputStream("./passwrd.txt");

@@ -26,6 +26,7 @@ import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.dbutils.DbUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
 public class AccountManager extends Thread {
@@ -322,8 +323,7 @@ public class AccountManager extends Thread {
 
 	}
 
-	
-	///FIXOR
+	/// FIXOR
 	public void fix() {
 
 		// Open connection
@@ -353,9 +353,9 @@ public class AccountManager extends Thread {
 							+ ");";
 
 				}
-				
+
 				smt.executeUpdate(query);
-				
+
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -810,6 +810,8 @@ public class AccountManager extends Thread {
 
 	public String openPosition(String nickName, Integer number, String tickerName, String exchange, String type) {
 		Connection conn = null;
+		Statement smt = null;
+		ResultSet rs = null;
 		Properties connectionProps = new Properties();
 		connectionProps.put("user", user);
 		connectionProps.put("password", passwd);
@@ -846,8 +848,8 @@ public class AccountManager extends Thread {
 								+ tickerName + "' AND orders.hold_method='" + type
 								+ "' and user_accounts.user_nickname='" + nickName + "'";
 
-						Statement smt = conn.createStatement();
-						ResultSet rs = smt.executeQuery(query);
+						smt = conn.createStatement();
+						rs = smt.executeQuery(query);
 
 						Double orderAmount = 0.0;
 						Double orderCost = 0.0;
@@ -903,13 +905,9 @@ public class AccountManager extends Thread {
 			message = "Something went wrong.";
 		} finally {
 
-			try {
-				conn.close();
-
-			} catch (Exception e) {
-
-				e.printStackTrace();
-			}
+			DbUtils.closeQuietly(rs);
+			DbUtils.closeQuietly(smt);
+			DbUtils.closeQuietly(conn);
 
 		}
 
@@ -1103,11 +1101,11 @@ public class AccountManager extends Thread {
 
 		return value;
 	}
-	
-	public List<ImmutablePair<String, Integer>> getListOfOpenTrades(String nickName){
-		
+
+	public List<ImmutablePair<String, Integer>> getListOfOpenTrades(String nickName) {
+
 		List<ImmutablePair<String, Integer>> pairs = new ArrayList<>();
-		
+
 		Connection conn = null;
 		Properties connectionProps = new Properties();
 		connectionProps.put("user", user);
@@ -1116,8 +1114,7 @@ public class AccountManager extends Thread {
 		int userId = getUserId(nickName);
 		if (userId == 0) {
 
-			
-			pairs.add(new ImmutablePair <String, Integer>("User not found.",0));
+			pairs.add(new ImmutablePair<String, Integer>("User not found.", 0));
 
 			return pairs;
 		}
@@ -1129,31 +1126,26 @@ public class AccountManager extends Thread {
 				System.out.println("Connected to database");
 
 				try {
-					
+
 					String query = "select orders.ticker , orders.exchange, orders.units " + "from orders "
 							+ "inner join user_accounts " + "on user_accounts.user_id = orders.user_id  "
 							+ "where user_accounts.user_nickname='" + nickName + "'";
-					
 
 					Statement smt = conn.createStatement();
 					ResultSet rs = smt.executeQuery(query);
-					
+
 					while (rs.next()) {
 
-						if(rs.getDouble("UNITS")!=0.0 && !rs.getString("TICKER").contains("LIBOR")) {
-							
-							Integer units = (int)rs.getDouble("UNITS");
+						if (rs.getDouble("UNITS") != 0.0 && !rs.getString("TICKER").contains("LIBOR")) {
+
+							Integer units = (int) rs.getDouble("UNITS");
 							String ticker = rs.getString("TICKER");
 							pairs.add(new ImmutablePair<String, Integer>(ticker, units));
-							
+
 						}
-						
-						
-						
-						
+
 					}
-					
-					
+
 				} catch (Exception e) {
 					e.printStackTrace();
 
@@ -1171,13 +1163,9 @@ public class AccountManager extends Thread {
 				e.printStackTrace();
 			}
 		}
-		
-		
-		
-		
-		return pairs; 
-				
-		
+
+		return pairs;
+
 	}
 
 	public List<String> getPortfolio(String nickName) {

@@ -160,7 +160,7 @@ public class DownloadData extends Thread {
 		public List<Double> getHistorical(String ticker) {
 
 			Long startTime = Calendar.getInstance().getTimeInMillis()/1000;
-			Long endTime = startTime - 1000000;
+			Long endTime = startTime - 500000;
 			List<Double> adjustedClose = new ArrayList<>();
 
 			try {
