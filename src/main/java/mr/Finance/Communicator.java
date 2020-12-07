@@ -1353,12 +1353,9 @@ public class Communicator extends Thread {
 		//Start Trader
 		
 		Long hour = 1000*60*60L;
-		//Long twohour =2* 1000*60*60L;
-		//Long threehour =3* 1000*60*60L;
+	
 		t.add( new Trader(am, hour));
-		//t.add( new Trader(am, twohour));
-		//t.add( new Trader(am, threehour));
-		// Load Password
+
 		try {
 			FileInputStream fstream = new FileInputStream("./passwrd.txt");
 			BufferedReader br = new BufferedReader(new InputStreamReader(fstream));

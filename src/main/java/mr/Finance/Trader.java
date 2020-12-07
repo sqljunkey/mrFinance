@@ -16,11 +16,9 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 //Papers 
+//
+// None as of Yet
 
-// https://jpm.pm-research.com/content/38/1/110.short
-// https://www.tandfonline.com/doi/abs/10.2469/faj.v57.n3.2449
-//https://www.sciencedirect.com/science/article/abs/pii/S1568494610000621
-//https://www.sciencedirect.com/science/article/abs/pii/S1386418199000129
 
 public class Trader extends Thread {
 
@@ -29,6 +27,8 @@ public class Trader extends Thread {
 
 //Trader Name
 	String trader = "mrfinance";
+	
+
 
 	List<HistoricalData> data = new ArrayList<>();
 	List<HistoricalData> tradeList = new ArrayList<>();
@@ -41,85 +41,10 @@ public class Trader extends Thread {
 		this.am = am;
 	}
 
-	// Class Ticker with Prices
-
-	class HistoricalData {
-
-		String ticker;
-		List<Double> adjustedPrices = new ArrayList<>();
-		DownloadData d = new DownloadData();
-		Double wins = 0.0;
-		Double plays = 0.0;
-
-		public HistoricalData(String ticker) {
-
-			this.ticker = ticker;
-			Double price = (Double) d.stock.getPrice(ticker)[0];
-			this.adjustedPrices.add(price);
-			this.adjustedPrices.add(price);
-
-		}
-
-		void increaseWins() {
-
-			wins += 1.0;
-		}
-
-		void increasePlays() {
-
-			plays += 1.0;
-
-		}
-		
-		Double getWinRate() {
-			
-			return wins/plays;
-			
-		}
-
-		void pushData() {
-			// Copy Last
-			
-			Double price = adjustedPrices.get(adjustedPrices.size() - 1);
-			adjustedPrices.clear();
-			
-			adjustedPrices.add(price);
-			adjustedPrices.add((Double) d.stock.getPrice(ticker)[0]);
-			
-		}
-
-		double getTotalReturn() {
-
-			System.out.println(adjustedPrices.get(adjustedPrices.size() - 1) + " " + adjustedPrices.get(0) + " "
-					+ adjustedPrices.size());
-
-			return adjustedPrices.get(adjustedPrices.size() - 1) / adjustedPrices.get(0) - 1;
-
-		}
-
-		double[] getReturns() {
-
-			List<Double> returns = new ArrayList<>();
-
-			Double previous = adjustedPrices.get(0);
-
-			for (int i = 1; i < adjustedPrices.size(); i++) {
-
-				returns.add(Math.log(previous / adjustedPrices.get(i)));
-			}
-
-			Double[] data = returns.toArray(new Double[returns.size()]);
-
-			return ArrayUtils.toPrimitive(data);
-		}
-
-	}
-
-	// Data List
 
 	// Open stocks from List
 
-	List<HistoricalData> openStocks() {
+	List<HistoricalData> loadStockList() {
 
 		List<HistoricalData> data = new ArrayList<>();
 		try {
@@ -141,6 +66,22 @@ public class Trader extends Thread {
 		return data;
 	}
 
+
+
+
+	// Search Trades
+	void searchTrades() {
+
+		System.out.println("Start Search");
+
+		Filters f = new Filters();
+		
+		updateStocks();
+		tradeList = f.sortByReturn(data);
+		
+
+	}	
+	
 	public void updateStocks() {
 
 		for (HistoricalData dat : data) {
@@ -151,72 +92,6 @@ public class Trader extends Thread {
 
 	}
 
-	// Co-Variance Analysis get top most uncorrelated stocks with the SP500
-
-	List<HistoricalData> marketCorrelation(List<HistoricalData> data, Double threshold) {
-
-		List<HistoricalData> newData = new ArrayList<>();
-		PearsonsCorrelation p = new PearsonsCorrelation();
-		HistoricalData SP = new HistoricalData("spy");
-
-		for (HistoricalData stock : data) {
-
-			try {
-				Double corr = p.correlation(SP.getReturns(), stock.getReturns());
-
-				System.out.println("Correlation: " + stock.ticker + " : " + corr);
-
-				if (corr < threshold) {
-
-					newData.add(stock);
-
-				}
-			} catch (Exception e) {
-
-				e.printStackTrace();
-			}
-
-		}
-
-		return newData;
-
-	}
-
-	// Get total Return per period
-
-	List<HistoricalData> getTotalReturn(List<HistoricalData> data, Double threshold) {
-
-		List<HistoricalData> newData = new ArrayList<>();
-
-		for (HistoricalData stock : data) {
-
-			Double totalReturn = stock.getTotalReturn();
-
-			if (totalReturn > threshold) {
-
-				
-				System.out.println("Total Return: " + stock.ticker + " : " + totalReturn);
-				stock.increasePlays();
-				newData.add(stock);
-
-			}
-		}
-
-		return newData;
-
-	}
-
-	// Search Trades
-	void searchTrades() {
-
-		System.out.println("Start Search");
-
-		updateStocks();
-		tradeList.clear();
-		tradeList = getTotalReturn(data, 0.000);
-		System.out.println(data.size());
-
-	}
 
 	// Open top 10 picks
 
@@ -225,86 +100,80 @@ public class Trader extends Thread {
 		// Instance of Download Data
 
 		DownloadData d = new DownloadData();
+		
+		Double money = am.getCashBalance(trader);
+		int topValue = 2;
+		Double allocationQuantity = money/topValue*.8;
 
-		if (tradeList.size() > 0) {
-			// Allocate Balance
-			Double allocation = am.getCashBalance(trader) / tradeList.size();
-			System.out.println("System Allocation : " + allocation);
-			// Go thru list and open trades.
-			for (HistoricalData stock : tradeList) {
-				try {
-					Double price = (Double) d.stock.getPrice((String) stock.ticker)[0];
+		
+		
+		//Open top 10
+		
+		
+		if(tradeList.size()> topValue)
+		for(int i = 0; i < topValue; i++) {
+			System.out.println(tradeList.get(i).getPercentageChange());
+			Double quantity = allocationQuantity/ (Double) d.stock.getPrice(tradeList.get(i).ticker)[0];
 
-					Integer number = (int) (Math.round(allocation / price) * .8);
-
-					am.openPosition(trader, number, (String) stock.ticker, "equity", "long");
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
+			am.openPosition(trader, quantity.intValue(), tradeList.get(i).ticker, "equity", "short");
 		}
+	
+		
+		
+		
 
 	}
 
 	// Close all Trades
 	void closeTrades() {
+		List<String> portfolio = am.getPortfolio(trader);
+	
 
 		// Get List Of Open Trades
-		List<ImmutablePair<String, Integer>> pairs = am.getListOfOpenTrades(trader);
+		List<Record> records = am.getListOfOpenTrades(trader);
 
 		// Print List of Pairs To Close
 
-		for (ImmutablePair<String, Integer> pair : pairs) {
+		for (Record record : records) {
 
-			System.out.println("Closing " + (int) pair.getRight() + " " + (String) pair.getLeft() + "....");
+			System.out.println("Closing " + record.getUnits() + " " + record.getTicker() + "....");
 
 		}
-		
-		//Add to List
-		for(HistoricalData stock: data){
-			
+
+		// Add to List
+		for (HistoricalData stock : data) {
+
 			DownloadData d = new DownloadData();
-			
-			for (ImmutablePair<String, Integer> pair : pairs) {
-			
-				if(((String) pair.getLeft()).equals(stock.ticker)) {
-					
-					if(stock.adjustedPrices.get(1)<(Double) d.stock.getPrice(stock.ticker)[0]) {
-						
-						stock.increaseWins();
-					}
+
+			if (stock.getStatus()) {
+
+				if (stock.adjustedPrices.get(1) < (Double) d.stock.getPrice(stock.ticker)[0]) {
+
+					stock.addScore(1.0);
+				} else {
+					stock.addScore(0.0);
 				}
-				
-				
-				
+
+				stock.decativate();
 			}
-			
+
 		}
 
 		// Close all trades one by one
 
-		for (ImmutablePair<String, Integer> pair : pairs) {
+		for (Record record : records) {
 
-			am.closePosition(trader, (int) pair.getRight(), (String) pair.getLeft(), "equity", "long");
+			am.closePosition(trader, record.getUnits().intValue(), record.getTicker(), "equity", record.getType());
 
 		}
 
 	}
 
-	// Boot Strap
-	/*
-	 * void bootstrap() { am.addNewAccount(trader, 100000.0); am.openBond(trader,
-	 * 1000);
-	 * 
-	 * }
-	 */
-
-	// Set Timer
 
 	void startTradeTimers() {
 
 		data.clear();
-		data = openStocks();
+		data = loadStockList();
 
 		this.start();
 
@@ -325,19 +194,21 @@ public class Trader extends Thread {
 
 			System.out.println("Trading...");
 			try {
-				Thread.sleep(1000 * 60 * 15);
+				Thread.sleep(1000 * 60 * 60);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 
 			closeTrades();
-			
-			
-			for(HistoricalData stock: data) {
-				
-				System.out.println(stock.ticker+" wins:  "+stock.wins+"  played:"+stock.plays+" winrate:"+ stock.getWinRate());
-				
+
+			for (HistoricalData stock : data) {
+
+				Double score = stock.scores.stream().mapToDouble(f -> f.doubleValue()).sum();
+
+				System.out.println(stock.ticker + " wins:  " + score + "  played:" + stock.scores.size() + " winrate:"
+						+ stock.getWinRate());
+
 			}
 
 		}

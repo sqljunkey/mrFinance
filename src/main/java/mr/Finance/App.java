@@ -7,7 +7,7 @@ public class App {
 		Communicator c = new Communicator();
 
 		c.addChannel("#materia");
-
+		c.addChannel("##economics");
 		c.addChannel("##investments");
 		c.addChannel("#bitcoin-pricetalk");
 		c.addChannel("##econometrix");

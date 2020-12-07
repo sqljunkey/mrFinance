@@ -1102,9 +1102,9 @@ public class AccountManager extends Thread {
 		return value;
 	}
 
-	public List<ImmutablePair<String, Integer>> getListOfOpenTrades(String nickName) {
+	public List<Record> getListOfOpenTrades(String nickName) {
 
-		List<ImmutablePair<String, Integer>> pairs = new ArrayList<>();
+		List<Record>records = new ArrayList<>();
 
 		Connection conn = null;
 		Properties connectionProps = new Properties();
@@ -1114,9 +1114,9 @@ public class AccountManager extends Thread {
 		int userId = getUserId(nickName);
 		if (userId == 0) {
 
-			pairs.add(new ImmutablePair<String, Integer>("User not found.", 0));
+			
 
-			return pairs;
+			return records;
 		}
 
 		try {
@@ -1127,7 +1127,7 @@ public class AccountManager extends Thread {
 
 				try {
 
-					String query = "select orders.ticker , orders.exchange, orders.units " + "from orders "
+					String query = "select orders.ticker , orders.exchange, orders.units, orders.hold_method " + "from orders "
 							+ "inner join user_accounts " + "on user_accounts.user_id = orders.user_id  "
 							+ "where user_accounts.user_nickname='" + nickName + "'";
 
@@ -1138,9 +1138,19 @@ public class AccountManager extends Thread {
 
 						if (rs.getDouble("UNITS") != 0.0 && !rs.getString("TICKER").contains("LIBOR")) {
 
-							Integer units = (int) rs.getDouble("UNITS");
+							Double units =  rs.getDouble("UNITS");
 							String ticker = rs.getString("TICKER");
-							pairs.add(new ImmutablePair<String, Integer>(ticker, units));
+							String type = rs.getString("HOLD_METHOD");
+							String exchange = rs.getString("EXCHANGE");
+							
+							Record record = new Record();
+							
+							record.setUnits(units);
+							record.setTicker(ticker);
+							record.setType(type);
+							record.setExchange(exchange);
+							
+							records.add(record);
 
 						}
 
@@ -1164,7 +1174,7 @@ public class AccountManager extends Thread {
 			}
 		}
 
-		return pairs;
+		return records;
 
 	}
 

@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.URL;
 
 import java.nio.charset.Charset;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Scanner;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -159,19 +161,17 @@ public class DownloadData extends Thread {
 
 		public List<Double> getHistorical(String ticker) {
 
-			Long startTime = Calendar.getInstance().getTimeInMillis()/1000;
+			Long startTime = Calendar.getInstance().getTimeInMillis() / 1000;
 			Long endTime = startTime - 500000;
 			List<Double> adjustedClose = new ArrayList<>();
 
 			try {
 
 				// https://query1.finance.yahoo.com/v7/finance/download/ETH-USD?period1=1566568826&period2=1598191226&interval=1d&events=history
-				FileUtils.copyURLToFile(
-						new URL("https://query1.finance.yahoo.com/v7/finance/download/" + ticker + "?period1="
-								+ endTime + "&period2=" + startTime + "&interval=1d&events=history")
-						
-						,
-						new File("./" + ticker + ".cvs"), 2000, 2000);
+				FileUtils.copyURLToFile(new URL("https://query1.finance.yahoo.com/v7/finance/download/" + ticker
+						+ "?period1=" + endTime + "&period2=" + startTime + "&interval=1d&events=history")
+
+						, new File("./" + ticker + ".cvs"), 2000, 2000);
 
 			} catch (Exception e) {
 
@@ -188,25 +188,18 @@ public class DownloadData extends Thread {
 				String row;
 				while ((row = csvReader.readLine()) != null) {
 					String[] data = row.split(",");
-					
-					//Copy Adjusted
-					
+
+					// Copy Adjusted
+
 					try {
-						
-						
-					adjustedClose.add(Double.parseDouble(data[5]));
-					
-					}
-					catch(Exception e) {
-						
-						//e.printStackTrace();
+
+						adjustedClose.add(Double.parseDouble(data[5]));
+
+					} catch (Exception e) {
+
+						// e.printStackTrace();
 					}
 
-					
-					
-					
-					
-					
 				}
 			} catch (Exception e) {
 
@@ -229,13 +222,11 @@ public class DownloadData extends Thread {
 				System.out.println("Failed to delete the file.");
 			}
 
-			
-			for(Double price: adjustedClose)
-			{
-				
+			for (Double price : adjustedClose) {
+
 				System.out.println(price);
 			}
-			
+
 			return adjustedClose;
 
 		}
@@ -499,6 +490,8 @@ public class DownloadData extends Thread {
 			return price;
 
 		}
+		
+	
 
 		public Object[] getYield(String ticker) {
 
@@ -506,8 +499,21 @@ public class DownloadData extends Thread {
 			Pattern p = Pattern.compile("Yield(\\s+\\d+\\.\\d+\\%)\\s+(-?\\d+\\.\\d+)\\s+Price");
 			try {
 
+				
+				//Patch By JustAnotherUser
 				URL url = new URL("https://quotes.wsj.com/bond/BX/TMUBMUSD" + ticker);
-				Document doc = Jsoup.parse(IOUtils.toString(url, Charset.forName("UTF-8")));
+				HttpURLConnection con = (HttpURLConnection) url.openConnection();
+				con.setRequestProperty("user-agent", "Mozilla/5.0");
+				con.connect();
+				StringBuffer sb = new StringBuffer();
+				Scanner sc = new Scanner(con.getInputStream());
+				while (sc.hasNext()) {
+					sb.append(sc.nextLine());
+				}
+
+				
+				//End Patch
+				Document doc = Jsoup.parse(sb.toString());
 
 				Matcher m = p.matcher(doc.text());
 				// System.out.println(doc.text());
@@ -842,7 +848,7 @@ public class DownloadData extends Thread {
 
 						// System.out.println(now +" "+ printed+" "+dater);
 
-						if (now.compareTo(printed) == 0 )
+						if (now.compareTo(printed) == 0)
 							headlines.add(dater + " :" + f.select("title").text());
 
 					}
