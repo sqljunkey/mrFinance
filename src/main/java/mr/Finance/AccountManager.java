@@ -43,7 +43,7 @@ public class AccountManager extends Thread {
 		this.d = d;
 
 		try {
-			FileInputStream fstream = new FileInputStream("./passwrd.txt");
+			FileInputStream fstream = new FileInputStream("./sqlpasswrd.txt");
 			BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
 
 			String strLine;

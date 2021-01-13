@@ -12,6 +12,7 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -47,7 +48,7 @@ public class Communicator extends Thread {
 	String NickName = "mrfinance";
 	String Password = "";
 	List<Trader> t = new ArrayList<>();
-	
+
 	public void addChannel(String channel) {
 
 		channels.add(channel);
@@ -262,21 +263,21 @@ public class Communicator extends Thread {
 					} else {
 						sendMessage(sender, "format <.open long 3 btc crypto> / <.open short 3 aapl equity>");
 					}
-				}  else if(m.find()) {
-					
-					
+				} else if (m.find()) {
+
 					sendMessage(sender, am.closeBond(sender, Integer.parseInt(m.group(1))).get(0));
-					
-				}else {
+
+				} else {
 
 					System.out.println("arg number");
-					sendMessage(sender, "format <.close long 3 btc crypto> / <.close short 3 aapl equity> / <.close 3 bond>");
+					sendMessage(sender,
+							"format <.close long 3 btc crypto> / <.close short 3 aapl equity> / <.close 3 bond>");
 				}
 
 			}
 			if (message.contains(".open") && !message.contains("openaccount") && message.charAt(0) == '.'
 					&& message.charAt(1) == 'o') {
-				
+
 				Pattern p = Pattern.compile("\\.open\\s+(\\d+)\\s+bond");
 				Matcher m = p.matcher(message);
 				String[] parts = message.split("\\s");
@@ -306,13 +307,11 @@ public class Communicator extends Thread {
 					} else {
 						sendMessage(sender, "format <.open long 3 btc crypto> / <.open short 3 aapl equity>");
 					}
-				} else if(m.find()) {
-					
-					
+				} else if (m.find()) {
+
 					sendMessage(sender, am.openBond(sender, Integer.parseInt(m.group(1))).get(0));
-					
-				}
-				else {
+
+				} else {
 					System.out.println("arg number");
 					sendMessage(sender, "format <.open long 3 btc crypto> / <.open short 3 aapl equity>/<.open 3 bond");
 				}
@@ -422,11 +421,94 @@ public class Communicator extends Thread {
 				sendMessage(channel, sender + ":" + reply);
 
 			}
-			//New Function Testor
+			// New Function Testor
 			if (message.equals(".test")) {
-				
-			//am.fix();
-				
+
+				// am.fix();
+
+			}
+			if (message.contains(".add") && message.charAt(0) == '.' && message.charAt(1) == 'a') {
+				DecimalFormat fte = new DecimalFormat("#0.00");
+				DecimalFormat fte2 = new DecimalFormat("#0.000");
+
+				List<String> ticker = new ArrayList<>();
+
+				ticker = Arrays.asList(message.split("\\s+"));
+				ticker = ticker.subList(1, ticker.size() - 1);
+
+				Object quote[] = d.stock.getMadeUpIndex(ticker);
+				String reply = "";
+				Double price = (Double) quote[0];
+				Double change = (Double) quote[1];
+				if (price > 0.0) {
+					if (change < 0 && !change.isNaN()) {
+						reply += " " + "Wintax Approved Index. " + ": " + c + "04" + fte.format(price);
+
+						reply += " " + fte2.format(change) + "%" + c + " ,";
+
+					} else if (change > 0 && !change.isNaN()) {
+						reply += " " + "Wintax Approved Index. " + ": " + c + "03" + fte.format(price);
+
+						reply += " +" + fte2.format(change) + "%" + c + " ,";
+					} else {
+						reply += " " + "Wintax Approved Index. " + ": " + fte.format(price);
+						if (!change.isNaN()) {
+							reply += " " + fte2.format(change) + "% ,";
+						}
+					}
+
+				}
+
+				sendMessage(channel, sender + ":" + reply);
+
+			}
+
+			if (message.equals(".win")) {
+				DecimalFormat fte = new DecimalFormat("#0.00");
+				DecimalFormat fte2 = new DecimalFormat("#0.000");
+
+				List<String> ticker = new ArrayList<>();
+				try {
+					FileInputStream fstream = new FileInputStream("./great.lst");
+					BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
+
+					String strLine;
+
+					while ((strLine = br.readLine()) != null) {
+
+						ticker.add(strLine);
+					}
+
+					br.close();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+
+				Object quote[] = d.stock.getMadeUpIndex(ticker);
+				String reply = "";
+				Double price = (Double) quote[0];
+				Double change = (Double) quote[1];
+				if (price > 0.0) {
+					if (change < 0 && !change.isNaN()) {
+						reply += " " + "Wintax Approved Index. " + ": " + c + "04" + fte.format(price);
+
+						reply += " " + fte2.format(change) + "%" + c + " ,";
+
+					} else if (change > 0 && !change.isNaN()) {
+						reply += " " + "Wintax Approved Index. " + ": " + c + "03" + fte.format(price);
+
+						reply += " +" + fte2.format(change) + "%" + c + " ,";
+					} else {
+						reply += " " + "Wintax Approved Index. " + ": " + fte.format(price);
+						if (!change.isNaN()) {
+							reply += " " + fte2.format(change) + "% ,";
+						}
+					}
+
+				}
+
+				sendMessage(channel, sender + ":" + reply);
+
 			}
 			if (message.equals(".hammond")) {
 				DecimalFormat fte = new DecimalFormat("#0.00");
@@ -502,8 +584,8 @@ public class Communicator extends Thread {
 
 			if (message.contains(".papertrade")) {
 
-
-				sendMessage(sender, "Check commands at: https://github.com/sqljunkey/mrFinance/blob/master/papertradeHelp.txt");
+				sendMessage(sender,
+						"Check commands at: https://github.com/sqljunkey/mrFinance/blob/master/papertradeHelp.txt");
 
 			}
 
@@ -691,15 +773,15 @@ public class Communicator extends Thread {
 			if (message.equals(".cpi")) {
 
 				DecimalFormat fte = new DecimalFormat("#0.00");
-				Object data[]=d.stock.getInflation();
-				
-				String reply =" (Test Mode)Daily Consumer Price Index: ";
+				Object data[] = d.stock.getInflation();
+
+				String reply = " (Test Mode)Daily Consumer Price Index: ";
 				Double price = (Double) data[0];
-				Double change= (Double) data[1];
-				
+				Double change = (Double) data[1];
+
 				if (price > 0.0) {
 					if (change < 0 && !change.isNaN()) {
-						reply +=   c + "04" + fte.format(price);
+						reply += c + "04" + fte.format(price);
 
 						reply += " " + fte.format(change) + "%" + c + " ,";
 
@@ -708,15 +790,14 @@ public class Communicator extends Thread {
 
 						reply += " +" + fte.format(change) + "%" + c + " ,";
 					} else {
-						reply +=  fte.format(price);
+						reply += fte.format(price);
 						if (!change.isNaN()) {
 							reply += " " + fte.format(change) + "% ,";
 						}
 					}
 
 				}
-				
-				
+
 				sendMessage(channel, sender + ":" + reply);
 			}
 
@@ -1086,7 +1167,9 @@ public class Communicator extends Thread {
 
 				int i = 0;
 				for (String head : headline) {
-					if(i>2) {break;}
+					if (i > 2) {
+						break;
+					}
 					i++;
 					sendMessage(channel, head);
 				}
@@ -1149,11 +1232,11 @@ public class Communicator extends Thread {
 				String parts[] = message.split("\\s");
 				String reply = "";
 				String quarter = "";
-				
-				if(message.contains(".fundamentalsq")){
-					quarter ="/income/quarter";
+
+				if (message.contains(".fundamentalsq")) {
+					quarter = "/income/quarter";
 				}
-				Object quotes[] = d.stock.getRev(parts[1],quarter);
+				Object quotes[] = d.stock.getRev(parts[1], quarter);
 
 				for (int i = 0; i < quotes.length; i++) {
 					reply += " " + quotes[i] + ",";
@@ -1161,12 +1244,12 @@ public class Communicator extends Thread {
 				reply = reply.substring(0, reply.lastIndexOf(","));
 				sendMessage(channel, sender + ":" + parts[1] + " Revenue: " + reply);
 				reply = "";
-				
-				if(message.contains(".fundamentalsq")){
-					quarter ="/quarter";
+
+				if (message.contains(".fundamentalsq")) {
+					quarter = "/quarter";
 				}
-				
-				Object quotes1[] = d.stock.getIncome(parts[1],quarter);
+
+				Object quotes1[] = d.stock.getIncome(parts[1], quarter);
 
 				for (int i = 0; i < quotes1.length; i++) {
 					reply += " " + quotes1[i] + ",";
@@ -1175,10 +1258,10 @@ public class Communicator extends Thread {
 				sendMessage(channel, sender + ":" + parts[1] + " Net Income: " + reply);
 
 				reply = "";
-				if(message.contains(".fundamentalsq")){
-					quarter ="/quarter";
+				if (message.contains(".fundamentalsq")) {
+					quarter = "/quarter";
 				}
-				Object quotes2[] = d.stock.getOpCash(parts[1],quarter);
+				Object quotes2[] = d.stock.getOpCash(parts[1], quarter);
 
 				for (int i = 0; i < quotes2.length; i++) {
 					reply += " " + quotes2[i] + ",";
@@ -1186,11 +1269,11 @@ public class Communicator extends Thread {
 				reply = reply.substring(0, reply.lastIndexOf(","));
 				sendMessage(channel, sender + ":" + parts[1] + " Operating Cashflow: " + reply);
 				reply = "";
-				
-				if(message.contains(".fundamentalsq")){
-					quarter ="/quarter";
+
+				if (message.contains(".fundamentalsq")) {
+					quarter = "/quarter";
 				}
-				Object quotes3[] = d.stock.getFCF(parts[1],quarter);
+				Object quotes3[] = d.stock.getFCF(parts[1], quarter);
 
 				for (int i = 0; i < quotes3.length; i++) {
 					reply += " " + quotes3[i] + ",";
@@ -1198,18 +1281,17 @@ public class Communicator extends Thread {
 				reply = reply.substring(0, reply.lastIndexOf(","));
 				sendMessage(channel, sender + ":" + parts[1] + " Free Cash Flow: " + reply);
 				reply = "";
-				
-				if(message.contains(".fundamentalsq")){
-					quarter ="/quarter";
+
+				if (message.contains(".fundamentalsq")) {
+					quarter = "/quarter";
 				}
-				Object quotes4[] = d.stock.getAsset(parts[1],quarter);
+				Object quotes4[] = d.stock.getAsset(parts[1], quarter);
 
 				for (int i = 0; i < quotes4.length; i++) {
 					reply += " " + quotes4[i] + ",";
 				}
 				reply = reply.substring(0, reply.lastIndexOf(","));
 				sendMessage(channel, sender + ":" + parts[1] + " Total Asset: " + reply);
-
 
 			}
 
@@ -1269,16 +1351,15 @@ public class Communicator extends Thread {
 				if (a.length == 4) {
 
 					reply += quote[2];
-					
-					String div =(String) quote[3];
-					if(!div.isEmpty()) {
-						reply+=" Div: " + div;
+
+					String div = (String) quote[3];
+					if (!div.isEmpty()) {
+						reply += " Div: " + div;
 					}
-					String pe =(String) quote[4];
-					if(!pe.isEmpty()) {
-						reply+=" P/E: " + pe;
+					String pe = (String) quote[4];
+					if (!pe.isEmpty()) {
+						reply += " P/E: " + pe;
 					}
-					
 
 				}
 				System.out.println(channel + ":" + sender + ":" + reply);
@@ -1343,18 +1424,17 @@ public class Communicator extends Thread {
 
 		d = new DownloadData();
 		d.start();
-		
-		
-		//Start Account Manager
-		
+
+		// Start Account Manager
+
 		am = new AccountManager(d);
 		am.start();
-		
-		//Start Trader
-		
-		Long hour = 1000*60*60L;
-	
-		t.add( new Trader(am, hour));
+
+		// Start Trader
+
+		Long hour = 1000 * 60 * 60L;
+
+		t.add(new Trader(am, hour));
 
 		try {
 			FileInputStream fstream = new FileInputStream("./passwrd.txt");
@@ -1419,14 +1499,14 @@ public class Communicator extends Thread {
 					}
 
 					if (!isUpdated) {
-						Double data = (Double)d.stock.getInflation()[0];
+						Double data = (Double) d.stock.getInflation()[0];
 						try {
-							
+
 							FileWriter myWriter = new FileWriter("./consumerpriceindextracker.lst");
-							
-							myWriter.write(""+data+"\n");
+
+							myWriter.write("" + data + "\n");
 							myWriter.write(date.toDate().toString());
-							
+
 							myWriter.close();
 						} catch (Exception e) {
 

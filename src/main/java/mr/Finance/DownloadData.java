@@ -158,20 +158,24 @@ public class DownloadData extends Thread {
 		}
 
 		// https://finance.yahoo.com/quote/ETH-USD/history?p=ETH-USD
+		public List<Double> getHistorical(String ticker, Calendar from, Calendar to) {
 
-		public List<Double> getHistorical(String ticker) {
-
-			Long startTime = Calendar.getInstance().getTimeInMillis() / 1000;
-			Long endTime = startTime - 500000;
+			Long startTime = from.getTimeInMillis()/1000;
+			Long endTime = to.getTimeInMillis()/1000;
+			
+			System.out.println(startTime);
+			System.out.println(endTime);
 			List<Double> adjustedClose = new ArrayList<>();
 
 			try {
 
 				// https://query1.finance.yahoo.com/v7/finance/download/ETH-USD?period1=1566568826&period2=1598191226&interval=1d&events=history
-				FileUtils.copyURLToFile(new URL("https://query1.finance.yahoo.com/v7/finance/download/" + ticker
-						+ "?period1=" + endTime + "&period2=" + startTime + "&interval=1d&events=history")
-
-						, new File("./" + ticker + ".cvs"), 2000, 2000);
+				FileUtils.copyURLToFile(
+						new URL("https://query1.finance.yahoo.com/v7/finance/download/" + ticker + "?period1="
+								+ endTime + "&period2=" + startTime + "&interval=1d&events=history")
+						
+						,
+						new File("./" + ticker + ".cvs"), 2000, 2000);
 
 			} catch (Exception e) {
 
@@ -188,18 +192,25 @@ public class DownloadData extends Thread {
 				String row;
 				while ((row = csvReader.readLine()) != null) {
 					String[] data = row.split(",");
-
-					// Copy Adjusted
-
+					
+					//Copy Adjusted
+					
 					try {
-
-						adjustedClose.add(Double.parseDouble(data[5]));
-
-					} catch (Exception e) {
-
-						// e.printStackTrace();
+						
+						
+					adjustedClose.add(Double.parseDouble(data[5]));
+					
+					}
+					catch(Exception e) {
+						
+						//e.printStackTrace();
 					}
 
+					
+					
+					
+					
+					
 				}
 			} catch (Exception e) {
 
@@ -217,19 +228,22 @@ public class DownloadData extends Thread {
 
 			File myObj = new File("./" + ticker + ".cvs");
 			if (myObj.delete()) {
-				System.out.println("Deleted the file: " + myObj.getName());
+				//System.out.println("Deleted the file: " + myObj.getName());
 			} else {
 				System.out.println("Failed to delete the file.");
 			}
 
-			for (Double price : adjustedClose) {
-
-				System.out.println(price);
+			
+			for(Double price: adjustedClose)
+			{
+				
+			//	System.out.println(price);
 			}
-
+			
 			return adjustedClose;
 
 		}
+
 
 		public Object[] getRev(String ticker, String quarterly) {
 			Object[] prices = { "n/a", "n/a", "n/a", "n/a", "n/a" };
