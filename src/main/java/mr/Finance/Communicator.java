@@ -42,12 +42,19 @@ import org.joda.time.format.DateTimeFormatter;
  */
 public class Communicator extends Thread {
 
-	DownloadData d;
 	AccountManager am = null;
 	List<String> channels = new ArrayList<>();
 	String NickName = "mrfinance";
-	String Password = "";
+	String Password = "qwerty";
 	List<Trader> t = new ArrayList<>();
+
+	String serverName = "";
+
+	public void addServerName(String server) {
+
+		this.serverName = server;
+
+	}
 
 	public void addChannel(String channel) {
 
@@ -58,6 +65,7 @@ public class Communicator extends Thread {
 
 		public MyBot() {
 			this.setName(NickName);
+			
 		}
 
 		public void onPrivateMessage(String sender, String login, String hostname, String message) {
@@ -95,6 +103,7 @@ public class Communicator extends Thread {
 
 		public void onMessage(String channel, String sender, String login, String hostname, String message) {
 			char c = 0x03;
+			DownloadData d = new DownloadData();
 
 			System.out.println("Channel: " + channel);
 			System.out.println("Sender: " + sender);
@@ -104,22 +113,46 @@ public class Communicator extends Thread {
 				channel = sender;
 
 			}
-			if (message.contentEquals(".clearCache") && sender.contains("hammond")) {
-				d.stock.cache.clear();
-				sendMessage(channel,
-						sender + ":" + "There are " + d.stock.cache.size() + " currently stored in the cached system.");
-
-			}
-			if (message.contentEquals(".getCache")) {
-
-				sendMessage(channel,
-						sender + ":" + "There are " + d.stock.cache.size() + " currently stored in the cached system.");
-
-			}
 
 			if (message.contains(".coronavirus")) {
 
 				sendMessage(channel, sender + ": " + d.stock.getCases());
+
+			}
+			// title
+			if (message.contains("https://") || message.contains("http://")) {
+
+				Pattern p = Pattern.compile("((https:|http:)\\/\\/((.*?)\\s+|.+))");
+				Matcher m = p.matcher(message);
+				if (m.find()) {
+					String link = d.stock.getTitle(m.group(1));
+					sendMessage(channel, link);
+				}
+
+			}
+			// .conv 192 to F
+			if (message.contains(".conv")) {
+
+				Pattern command = Pattern.compile(".conv\\s+(-?\\d+\\.?(\\d+)?)\\s+to\\s+(f|c)");
+				Matcher m = command.matcher(message.toLowerCase());
+
+				if (m.find()) {
+
+					Double number = Double.parseDouble(m.group(1));
+					if (m.group(3).contentEquals("f")) {
+						number = (number * (9.0 / 5.0)) + 32.0;
+						sendMessage(channel, sender + ": " + number + " F");
+					} else {
+
+						number = (number - 32.0) * (double) (5.0 / 9.0);
+
+						sendMessage(channel, sender + ": " + number + " C");
+					}
+
+				} else {
+
+					sendMessage(channel, " .conv 90 to c|f");
+				}
 
 			}
 
@@ -145,11 +178,26 @@ public class Communicator extends Thread {
 				}
 
 			}
+			if (message.contains(".strength") && message.charAt(0) == '.' && message.charAt(1) == 's') {
+
+				Object[] strength = d.stock.getStrength();
+				DecimalFormat twoDecimal = new DecimalFormat("###,###,##0.00");
+				sendMessage(channel,
+						sender + ": Strength: " + twoDecimal.format((double) strength[0]) + " Spy Current Price: "
+								+ twoDecimal.format(strength[1]) + " Spy Target Price: "
+								+ twoDecimal.format(strength[2]));
+
+			}
 
 			if (message.contains(".getbalance") && message.charAt(0) == '.' && message.charAt(1) == 'g') {
 				DecimalFormat fte = new DecimalFormat("###,###,###.00");
 
-				sendMessage(sender, sender + ":You have $" + fte.format(am.getCashBalance(sender)) + " left.");
+				Double balance = am.getCashBalance(sender);
+				if (balance != 0)
+					sendMessage(sender, sender + ":You have $" + fte.format(balance) + " left.");
+				else
+					sendMessage(sender,
+							sender + ": You are not a user yet please enter .papertrade to get the list of commands.");
 
 			}
 
@@ -160,12 +208,18 @@ public class Communicator extends Thread {
 			}
 			if (message.contains(".getportfolio") && message.charAt(0) == '.' && message.charAt(1) == 'g') {
 
-				String[] parts = message.split("\\s");
-				List<String> portfolio = am.getPortfolio(parts[1]);
+				Thread t = new Thread() {
+					public void run() {
+						String[] parts = message.split("\\s");
+						List<String> portfolio = am.getPortfolio(parts[1]);
 
-				for (int i = 0; i < portfolio.size() - 1; i++) {
-					sendMessage(sender, portfolio.get(i));
-				}
+						for (int i = 0; i < portfolio.size() - 1; i++) {
+							sendMessage(sender, portfolio.get(i));
+						}
+					}
+				};
+
+				t.start();
 
 			}
 			if (message.contains(".limits") && message.charAt(0) == '.' && message.charAt(1) == 'l') {
@@ -180,60 +234,6 @@ public class Communicator extends Thread {
 
 			}
 
-			if (message.contains(".set") && message.charAt(0) == '.' && message.charAt(1) == 's') {
-
-				Pattern command = Pattern.compile(
-						"\\.set\\s+(long|short)\\s+(.+?)\\s+sl\\s+(-\\d+\\.\\d+\\%)\\s+tp\\s+(\\d+\\.\\d+\\%)");
-				Matcher m = command.matcher(message);
-
-				if (m.find()) {
-
-					String type = m.group(1);
-					String ticker = m.group(2);
-					Double stopLoss = Double.parseDouble(m.group(3).replaceAll("[^0-9.-]", ""));
-					Double takeProfit = Double.parseDouble(m.group(4).replaceAll("[^0-9.-]", ""));
-
-					System.out.println(type + " " + ticker + " " + stopLoss + " " + takeProfit);
-					String info = am.setLimit(sender, ticker, type, stopLoss, takeProfit);
-
-					sendMessage(sender, info);
-					System.out.println(info);
-
-				}
-
-				else {
-
-					sendMessage(sender,
-							"Syntax to set limit: <.set long btc sl -9.0% tp 0.1%> / <.set long aapl sl -1.0% tp 10.0% >");
-				}
-
-			}
-
-			if (message.contains(".unset") && message.charAt(0) == '.' && message.charAt(1) == 'u') {
-
-				Pattern command = Pattern.compile("\\.unset\\s+(long|short)\\s+(.+?)($|\\s+)");
-				Matcher m = command.matcher(message);
-
-				if (m.find()) {
-
-					String type = m.group(1);
-					String ticker = m.group(2);
-
-					System.out.println(type + " " + ticker + " ");
-
-					String info = am.unSetLimit(sender, ticker, type);
-
-					sendMessage(sender, info);
-					System.out.println(info);
-
-				}
-
-				else {
-
-					sendMessage(sender, "Syntax to unset limit: <.unset long btc / <.unset long aapl >");
-				}
-
-			}
 			if (message.contains(".close") && message.charAt(0) == '.' && message.charAt(1) == 'c') {
 				String[] parts = message.split("\\s");
 				Pattern p = Pattern.compile("\\.close\\s+(\\d+)\\s+bond");
@@ -302,7 +302,7 @@ public class Communicator extends Thread {
 					}
 
 					if (number != 0 && !type.isEmpty() && !exchange.isEmpty()) {
-						String reply = am.openPosition(sender, number, parts[3].toLowerCase(), exchange, type);
+						String reply = am.openPosition(sender, number, parts[3].toLowerCase(), exchange, type,0,0.0);
 						sendMessage(sender, reply);
 					} else {
 						sendMessage(sender, "format <.open long 3 btc crypto> / <.open short 3 aapl equity>");
@@ -362,15 +362,24 @@ public class Communicator extends Thread {
 			}
 
 			if (message.contains(".scores") && message.charAt(0) == '.' && message.charAt(1) == 's') {
-				List<String> lines = am.getScore();
-				sendMessage(sender, "" + "=============================================");
-				sendMessage(sender, "" + " The game will run until the server crashes  ");
-				sendMessage(sender, "" + "          Since Dec 01 2019                  ");
-				sendMessage(sender, "" + "=============================================");
-				for (String line : lines) {
-					sendMessage(sender, "" + line);
 
-				}
+				Thread t = new Thread() {
+					public void run() {
+						
+						
+						List<String> lines = am.getScore();
+						sendMessage(sender, "" + "=============================================");
+						sendMessage(sender, "" + " The game will run until the server crashes  ");
+						sendMessage(sender, "" + "          Since Dec 01 2019                  ");
+						sendMessage(sender, "" + "=============================================");
+						for (String line : lines) {
+							sendMessage(sender, "" + line);
+
+						}
+					}
+				};
+
+				t.start();
 
 			}
 
@@ -379,8 +388,8 @@ public class Communicator extends Thread {
 			if (message.equals(".futures")) {
 				DecimalFormat fte = new DecimalFormat("#0.00");
 
-				String parts[] = { "ES=F", "NQ=F" };
-				String partz[] = { "E-Mini S&P 500", "E-Mini Dow", };
+				String parts[] = { "ES=F", "NQ=F", "YM=F", "RTY=F" };
+				String partz[] = { "S&P 500", "Nasdaq 100", "Mini-Dow", "Russel 2000" };
 				Double price = 0.0;
 				Double change = 0.0;
 				String reply = "";
@@ -510,6 +519,53 @@ public class Communicator extends Thread {
 				sendMessage(channel, sender + ":" + reply);
 
 			}
+			if (message.equals(".bad")) {
+				DecimalFormat fte = new DecimalFormat("#0.00");
+				DecimalFormat fte2 = new DecimalFormat("#0.000");
+
+				List<String> ticker = new ArrayList<>();
+				try {
+					FileInputStream fstream = new FileInputStream("./bad.lst");
+					BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
+
+					String strLine;
+
+					while ((strLine = br.readLine()) != null) {
+
+						ticker.add(strLine);
+					}
+
+					br.close();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+
+				Object quote[] = d.stock.getMadeUpIndex(ticker);
+				String reply = "";
+				Double price = (Double) quote[0];
+				Double change = (Double) quote[1];
+				if (price > 0.0) {
+					if (change < 0 && !change.isNaN()) {
+						reply += " " + "Hammond's About To File For Chapter 11 Index. " + ": " + c + "04" + fte.format(price);
+
+						reply += " " + fte2.format(change) + "%" + c + " ,";
+
+					} else if (change > 0 && !change.isNaN()) {
+						reply += " " + "Hammond's About To File For Chapter 11 Index. " + ": " + c + "03" + fte.format(price);
+
+						reply += " +" + fte2.format(change) + "%" + c + " ,";
+					} else {
+						reply += " " + "Hammond's About To File For Chapter 11 Index. " + ": " + fte.format(price);
+						if (!change.isNaN()) {
+							reply += " " + fte2.format(change) + "% ,";
+						}
+					}
+
+				}
+
+				sendMessage(channel, sender + ":" + reply);
+
+			}
 			if (message.equals(".hammond")) {
 				DecimalFormat fte = new DecimalFormat("#0.00");
 				DecimalFormat fte2 = new DecimalFormat("#0.000");
@@ -567,7 +623,7 @@ public class Communicator extends Thread {
 
 				sendMessage(sender, ".fundamentals .fundamentalsq .head .futures, .vol, .grain  .asia, .coronavirus");
 				sendMessage(sender, ".europe, .currency, .shiller, .metal, .soft , .livestock,");
-				sendMessage(sender, ".oil, .crypto, .help, .market, .yield, .other, .hammond, .cpi");
+				sendMessage(sender, ".oil, .crypto, .help, .market, .yield, .other, .hammond, .cpi, .strength");
 				sendMessage(sender, "   ");
 
 				sendMessage(sender, "             ARGUMENT COMMANDS:        ");
@@ -584,16 +640,35 @@ public class Communicator extends Thread {
 
 			if (message.contains(".papertrade")) {
 
+				sendMessage(sender, "Paper Trade Commands (Type them anywhere)");
+				sendMessage(sender, "---------------------------------------------------------------");
 				sendMessage(sender,
-						"Check commands at: https://github.com/sqljunkey/mrFinance/blob/master/papertradeHelp.txt");
+						".openaccount                   -  Opens New Account and gives you 100,000 dollars to play with.");
+				sendMessage(sender, ".getportfolio nickname         -  Gives you the portfolio contents of any user");
+				sendMessage(sender,
+						".scores                        -  Gives you everyones market value + cash ranked from highest to lowest.");
+				sendMessage(sender,
+						".open short 3 aapl equity      -  Opens 3 short positions of the aapl stock by specifying the crypto or equity type");
+				sendMessage(sender, ".close short 3 aapl equity     -  Closes 3 short positions of aapl stock");
+				sendMessage(sender,
+						".open long 24 btc crypto       -  Opens 24 long positions of btc by specifying the crypto or equity type");
+				sendMessage(sender, ".close long 30 btc crypto      -  Closes 30 long positions of btc crypto");
+				sendMessage(sender, ".getbalance   		           -  Checks how much money you have left");
+				sendMessage(sender,
+						".darkpool-price btc crypto     -  Gives you the bid and ask price for the mrfinance darkpool crypto prices of btc");
+				sendMessage(sender, ".open 3 bond                   -  Borrows $3,000, maximum borrowing $1,000,000.");
+				sendMessage(sender, ".close 3 bond 		           -  Closes $3,000 in borrowed funds.");
+				sendMessage(sender, "You can trade all tickers provided you use the ones that Yahoo Finance uses.");
+				sendMessage(sender, " ");
+				sendMessage(sender, "Have Fun!");
 
 			}
 
 			if (message.equals(".grain")) {
 				DecimalFormat fte = new DecimalFormat("#0.00");
 
-				String parts[] = { "C=F", "S=F", "O=F" };
-				String partz[] = { "Corn", "Soybean", "OATS" };
+				String parts[] = { "ZC=F", "ZS=F", "ZO=F", "ZR=F" };
+				String partz[] = { "Corn", "Soybean", "OATS", "Rice" };
 				Double price = 0.0;
 				Double change = 0.0;
 				String reply = "";
@@ -637,7 +712,7 @@ public class Communicator extends Thread {
 			if (message.equals(".soft")) {
 				DecimalFormat fte = new DecimalFormat("#0.00");
 
-				String parts[] = { "CC=F", "KC=F", "LB=F", "OJ=F", "SB=F" };
+				String parts[] = { "CC=F", "KC=F", "LBS=F", "OJ=F", "SB=F" };
 				String partz[] = { "Cocoa", "Coffee", "Lumber", "OJ", "Sugar" };
 				Double price = 0.0;
 				Double change = 0.0;
@@ -683,7 +758,7 @@ public class Communicator extends Thread {
 			if (message.equals(".animal") || message.equals(".livestock")) {
 				DecimalFormat fte = new DecimalFormat("#0.00");
 
-				String parts[] = { "FC=F", "LH=F", "LC=F" };
+				String parts[] = { "GF=F", "HE=F", "LE=F" };
 				String partz[] = { "Feeder Cattle", "Lean Hog", "Live Cattle" };
 				Double price = 0.0;
 				Double change = 0.0;
@@ -768,6 +843,12 @@ public class Communicator extends Thread {
 				System.out.println(channel + ":" + sender + ":" + reply);
 				sendMessage(channel, sender + ":" + reply);
 
+			}
+			if (message.equals(".reset")) {
+
+					for(Trader tr: t) {
+						tr.resetOrders();
+					}
 			}
 
 			if (message.equals(".cpi")) {
@@ -897,8 +978,9 @@ public class Communicator extends Thread {
 			if (message.equals(".metal") || message.equals(".metals")) {
 				DecimalFormat fte = new DecimalFormat("#0.00");
 
-				String parts[] = { "GC=F", "SI=F", "PL=F", "HG=F" };
-				String partz[] = { "Gold", "Silver", "Platinum", "Copper" };
+				String parts[] = { "GC=F", "SI=F", "PL=F", "HG=F", "PA=F", "ALI=F", "HRC=F" };
+				String partz[] = { "Gold", "Silver", "Platinum", "Copper", "PALLADIUM", "Aluminum",
+						"HOT ROLLED STEEL MIDWEST" };
 				Double price = 0.0;
 				Double change = 0.0;
 				String reply = "";
@@ -1234,7 +1316,7 @@ public class Communicator extends Thread {
 				String quarter = "";
 
 				if (message.contains(".fundamentalsq")) {
-					quarter = "/income/quarter";
+					quarter = "/income/quarter/";
 				}
 				Object quotes[] = d.stock.getRev(parts[1], quarter);
 
@@ -1244,9 +1326,22 @@ public class Communicator extends Thread {
 				reply = reply.substring(0, reply.lastIndexOf(","));
 				sendMessage(channel, sender + ":" + parts[1] + " Revenue: " + reply);
 				reply = "";
+				
+				
+				if (message.contains(".fundamentalsq")) {
+					quarter = "/income/quarter/";
+				}
+				Object quotes6[] = d.stock.getGross(parts[1], quarter);
+
+				for (int i = 0; i < quotes6.length; i++) {
+					reply += " " + quotes6[i] + ",";
+				}
+				reply = reply.substring(0, reply.lastIndexOf(","));
+				sendMessage(channel, sender + ":" + parts[1] + " Gross Income: " + reply);
+				reply = "";
 
 				if (message.contains(".fundamentalsq")) {
-					quarter = "/quarter";
+					quarter = "/quarter/";
 				}
 
 				Object quotes1[] = d.stock.getIncome(parts[1], quarter);
@@ -1259,7 +1354,7 @@ public class Communicator extends Thread {
 
 				reply = "";
 				if (message.contains(".fundamentalsq")) {
-					quarter = "/quarter";
+					quarter = "/quarter/";
 				}
 				Object quotes2[] = d.stock.getOpCash(parts[1], quarter);
 
@@ -1271,7 +1366,7 @@ public class Communicator extends Thread {
 				reply = "";
 
 				if (message.contains(".fundamentalsq")) {
-					quarter = "/quarter";
+					quarter = "/quarter/";
 				}
 				Object quotes3[] = d.stock.getFCF(parts[1], quarter);
 
@@ -1283,7 +1378,7 @@ public class Communicator extends Thread {
 				reply = "";
 
 				if (message.contains(".fundamentalsq")) {
-					quarter = "/quarter";
+					quarter = "/quarter/";
 				}
 				Object quotes4[] = d.stock.getAsset(parts[1], quarter);
 
@@ -1292,6 +1387,18 @@ public class Communicator extends Thread {
 				}
 				reply = reply.substring(0, reply.lastIndexOf(","));
 				sendMessage(channel, sender + ":" + parts[1] + " Total Asset: " + reply);
+				reply = "";
+
+				if (message.contains(".fundamentalsq")) {
+					quarter = "/quarter/";
+				}
+				Object quotes5[] = d.stock.getDebt(parts[1], quarter);
+
+				for (int i = 0; i < quotes5.length; i++) {
+					reply += " " + quotes5[i] + ",";
+				}
+				reply = reply.substring(0, reply.lastIndexOf(","));
+				sendMessage(channel, sender + ":" + parts[1] + " Total Liabilities: " + reply);
 
 			}
 
@@ -1300,6 +1407,20 @@ public class Communicator extends Thread {
 				String[] parts = message.split("\\s");
 
 				sendMessage(channel, sender + ": " + d.stock.getInfo(parts[1]));
+
+			}
+
+			if (message.contains(".earnings") && message.charAt(0) == '.' && message.charAt(1) == 'e') {
+				String[] parts = message.split("\\s");
+
+				for (int i = 0; i < 3; i++) {
+					System.out.println("Number of tries: " + i);
+					String reply = d.stock.getEPSEstimate(parts[1]);
+					if (!reply.isEmpty()) {
+						sendMessage(channel, sender + ": " + reply);
+						break;
+					}
+				}
 
 			}
 
@@ -1312,12 +1433,12 @@ public class Communicator extends Thread {
 				Double price = 0.0;
 				Double change = 0.0;
 				Object quote[] = null;
-
+				String ticker = "";
 				String[] parts = message.split("\\s");
 
 				for (int i = 1; i < parts.length; i++) {
 					d.stock.getPrice(parts[i]);
-
+					ticker = parts[i];
 					quote = d.stock.getPrice(parts[i]);
 					price = (Double) quote[0];
 					change = (Double) quote[1];
@@ -1349,6 +1470,8 @@ public class Communicator extends Thread {
 				String a[] = reply.split(" ");
 
 				if (a.length == 4) {
+					
+					Object information[] = d.stock.getKeyStatistics(ticker);
 
 					reply += quote[2];
 
@@ -1359,6 +1482,26 @@ public class Communicator extends Thread {
 					String pe = (String) quote[4];
 					if (!pe.isEmpty()) {
 						reply += " P/E: " + pe;
+					}
+
+					String afterHour = (String) quote[6];
+					if (!afterHour.isEmpty()) {
+						reply += " After Hour(s): " + afterHour;
+					}
+
+					String marketCap = (String) quote[5];
+					if (!marketCap.isEmpty()) {
+						reply += " Market Cap: " + marketCap;
+					}
+					
+					String yearChange = (String)information[0];
+					if(!yearChange.isEmpty()) {
+						reply += " 52 Week Change: " + yearChange;
+					}
+					
+					String beta = (String)information[1];
+					if(!beta.isEmpty()) {
+						reply += " Beta: " + beta;
 					}
 
 				}
@@ -1375,7 +1518,16 @@ public class Communicator extends Thread {
 				Double price = 0.0;
 				Double change = 0.0;
 				Object data[];
+				
+				
+				
+				
 				String[] parts = message.toLowerCase().split(" ");
+				
+				if(message.replaceAll(".crypto\\s+?", "").isEmpty()) {
+					
+					parts = ".crypto btc eth doge ada shib matic dot".split(" ");
+				}
 				for (int i = 1; i < parts.length; i++) {
 					data = d.stock.getCrypto(parts[i]);
 					price = (Double) data[0];
@@ -1422,19 +1574,16 @@ public class Communicator extends Thread {
 
 	public Communicator() throws IOException, IrcException {
 
-		d = new DownloadData();
-		d.start();
-
 		// Start Account Manager
 
-		am = new AccountManager(d);
+		am = new AccountManager();
 		am.start();
 
 		// Start Trader
 
-		Long hour = 1000 * 60 * 60L;
+		
 
-		t.add(new Trader(am, hour));
+		t.add(new Trader(am));
 
 		try {
 			FileInputStream fstream = new FileInputStream("./passwrd.txt");
@@ -1457,7 +1606,7 @@ public class Communicator extends Thread {
 	public void run() {
 		try {
 			// Connect to the IRC server.
-			bot.connect("irc.freenode.net");
+			bot.connect(serverName);
 			bot.sendMessage("nickserv", " id " + Password);
 
 			for (String channel : channels) {
@@ -1466,66 +1615,27 @@ public class Communicator extends Thread {
 				bot.joinChannel(channel);
 
 			}
+			
+			while(true) {
+				
+				Thread.sleep(1000*60*15);
+				if(!bot.isConnected()) {
+					bot.reconnect();
+					bot.connect(serverName);
+					
+					for (String channel : channels) {
+						Thread.sleep(4000);
 
-			// Update Trackers every 6 hours
-			while (true) {
-
-				try {
-
-					Boolean isUpdated = false;
-					LocalDate date = LocalDate.now();
-					System.out.println(date.toDate().toString());
-
-					try {
-						FileInputStream fstream = new FileInputStream("./consumerpriceindextracker.lst");
-						BufferedReader br = new BufferedReader(new InputStreamReader(fstream));
-
-						String strLine;
-
-						while ((strLine = br.readLine()) != null) {
-
-							// if date is the same set true
-							if (strLine.contentEquals(date.toDate().toString())) {
-								isUpdated = true;
-
-							}
-
-						}
-
-						br.close();
-					} catch (Exception e) {
-
-						e.printStackTrace();
-					}
-
-					if (!isUpdated) {
-						Double data = (Double) d.stock.getInflation()[0];
-						try {
-
-							FileWriter myWriter = new FileWriter("./consumerpriceindextracker.lst");
-
-							myWriter.write("" + data + "\n");
-							myWriter.write(date.toDate().toString());
-
-							myWriter.close();
-						} catch (Exception e) {
-
-							e.printStackTrace();
-						}
+						bot.joinChannel(channel);
 
 					}
-
-					this.sleep(21000000);
-				} catch (Exception e) {
-
-					e.printStackTrace();
 				}
-
 			}
 
 		} catch (Exception e) {
 			e.printStackTrace();
 			bot.onDisconnect();
+			
 		}
 
 	}

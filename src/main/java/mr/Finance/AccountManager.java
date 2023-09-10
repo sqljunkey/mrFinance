@@ -13,6 +13,7 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -31,7 +32,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 
 public class AccountManager extends Thread {
 
-	DownloadData d;
+	
 	String passwd = "";
 	String user = "";
 	Double startAmount = 100000.0;
@@ -39,8 +40,8 @@ public class AccountManager extends Thread {
 	DecimalFormat twoDecimal = new DecimalFormat("###,###,##0.00");
 	List<Account> accounts = new ArrayList<>();
 
-	AccountManager(DownloadData d) {
-		this.d = d;
+	AccountManager() {
+		
 
 		try {
 			FileInputStream fstream = new FileInputStream("./sqlpasswrd.txt");
@@ -77,88 +78,125 @@ public class AccountManager extends Thread {
 	}
 
 	public void run() {
+		
+		HashMap<String, Double> map = new HashMap<>();
+		Boolean alreadyPaid = false;
 
 		while (true) {
 
-			System.out.println("Checking Limits");
+			
 			try {
-				this.sleep(600000);
+				
+				
+				System.out.println("Sleeping");
+				this.sleep(1000*60*60*6);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
+			}
+			Calendar cal = Calendar.getInstance();
+			int dayOfMonth = cal.get(Calendar.DAY_OF_MONTH);
+			if(dayOfMonth!=1) {
+				
+				alreadyPaid =false;
 			}
 
 			Connection conn = null;
 			Properties connectionProps = new Properties();
 			connectionProps.put("user", user);
 			connectionProps.put("password", passwd);
+			if(!alreadyPaid&&dayOfMonth==1) {
+				DownloadData d = new DownloadData();
 			try {
 				conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/test", connectionProps);
 				if (!conn.isClosed()) {
-
-					String query = "SELECT orders.ticker, " + " user_accounts.user_nickname," + " orders.units, "
-							+ " orders.cost," + " orders.hold_method," + " orders.exchange," + " orders.stop_loss,"
-							+ " orders.take_profit " + " from orders inner " + " join user_accounts "
-							+ " on orders.user_id=user_accounts.user_id" + " WHERE" + " orders.stop_loss!='0.0' AND "
-							+ " orders.take_profit!='0.0'";
-
-					Statement smt = conn.createStatement();
-
-					String ticker = "";
-					Double units = 0.0;
-					Double cost = 0.0;
-					Double stopLoss = 0.0;
-					Double takeProfit = 0.0;
-					String exchange = "";
-					String type = "";
-					String nickName = "";
-
-					ResultSet rs = smt.executeQuery(query);
-					while (rs.next()) {
-
-						ticker = rs.getString("TICKER");
-						nickName = rs.getString("USER_NICKNAME");
-						units = rs.getDouble("UNITS");
-						cost = rs.getDouble("COST");
-						takeProfit = rs.getDouble("TAKE_PROFIT");
-						stopLoss = rs.getDouble("STOP_LOSS");
-						type = rs.getString("HOLD_METHOD");
-						exchange = rs.getString("EXCHANGE");
-
-						Double percentage = 0.0;
-
-						if (type.contentEquals("long")) {
-
-							Double costBasis = cost / units;
-							Object value[] = getPositionValue(ticker, exchange);
-							percentage = (((Double) value[0] / costBasis) - 1) * 100;
-
-							System.out.println(percentage);
-
+					    Statement smt = conn.createStatement();
+						String query = "select orders.ticker  from orders where exchange!='bond' and exchange!='crypto' group by ticker";
+						ResultSet rs = smt.executeQuery(query);
+						while(rs.next()) {
+							
+							
+							String ticker = rs.getString("TICKER");
+							
+							Double dividend =0.0;
+							if(!ticker.contains("=")&&!ticker.contains("^")) {
+							dividend = d.stock.getDividend(ticker);
+							//System.out.println(ticker+" "+ dividend);
+							}
+							
+							if(dividend!=0.0) {
+								
+								map.put(ticker, dividend/12);
+								
+							}
+							
+							
 						}
-						if (type.contentEquals("short")) {
-
-							Double costBasis = cost / units;
-							Object value[] = getPositionValue(ticker, exchange);
-							percentage = ((costBasis / (Double) value[0]) - 1) * 100;
-
-							System.out.println(percentage);
+						
+						
+						query ="select orders.user_id, orders.units, orders.ticker from orders";
+						
+						rs = smt.executeQuery(query);
+						HashMap <Integer, Double> paymentSheet = new HashMap<>();
+						while(rs.next()) {
+							
+							Integer user = rs.getInt("USER_ID");
+							paymentSheet.put(user, 0.0);
+						
 						}
-						// String nickName, Integer number, String tickerName, String exchange, String
-						// type
-
-						if (percentage > takeProfit || percentage < stopLoss) {
-
-							System.out.println(closePosition(nickName, units.intValue(), ticker, exchange, type));
-							System.out.println(unSetLimit(nickName, ticker, type));
-
+						
+						rs= smt.executeQuery(query);
+						
+						while(rs.next()) {
+							
+							Integer user = rs.getInt("USER_ID");
+							Integer units = rs.getInt("UNITS");
+							String ticker = rs.getString("TICKER");
+							
+							if(map.containsKey(ticker)) {
+								
+								Double amount = map.get(ticker)*units;
+								
+								paymentSheet.put(user, paymentSheet.get(user)+amount);
+								
+							}
+							
+							
 						}
-						if (percentage.isNaN()) {
-
-							System.out.println(unSetLimit(nickName, ticker, type));
+						
+						query = "select * from user_accounts";
+						
+						
+						rs= smt.executeQuery(query);
+						
+						while(rs.next()) {
+							
+							Integer user = rs.getInt("USER_ID");
+							Double cashBalance = rs.getDouble("CASH_BALANCE");
+							if(paymentSheet.containsKey(user)) {
+								
+								
+								
+								paymentSheet.put(user, paymentSheet.get(user)+cashBalance);
+								
+							}
+							
 						}
-
-					}
+						
+						
+						
+						for(Map.Entry<Integer, Double> g: paymentSheet.entrySet()) {
+							
+							
+							query = "UPDATE user_accounts SET cash_balance='"+g.getValue()+
+									"' where user_id='"+g.getKey()+"'";
+							smt.executeUpdate(query);
+							System.out.println(g.getKey()+" "+g.getValue());
+							
+							
+						}
+						
+					alreadyPaid=true;	
 
 				}
 
@@ -172,6 +210,7 @@ public class AccountManager extends Thread {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
+			}
 			}
 
 		}
@@ -222,6 +261,13 @@ public class AccountManager extends Thread {
 				Integer userId = getUserId(nickName);
 				Double cashBalance = 0.0;
 				Double bondTotalValue = 0.0;
+				
+				if(number<=0) {
+					
+					list.add("That's an odd lot.");
+					return list;
+				}
+				
 				if (userId == 0) {
 
 					list.add("No such user, make a new account by using .openaccount");
@@ -399,6 +445,7 @@ public class AccountManager extends Thread {
 				Statement smt = conn.createStatement();
 				Integer userId = getUserId(nickName);
 				Double cashBalance = 0.0;
+				DownloadData d = new DownloadData();
 				Double libor = d.stock.getLibor()[0];
 
 				// If we didn't get the libor set the libor to something else.
@@ -409,7 +456,7 @@ public class AccountManager extends Thread {
 					libor = .25;
 				}
 
-				if (number == 0) {
+				if (number >=0) {
 
 					list.add("That's an odd lot.");
 					return list;
@@ -808,7 +855,8 @@ public class AccountManager extends Thread {
 
 	}
 
-	public String openPosition(String nickName, Integer number, String tickerName, String exchange, String type) {
+	public String openPosition(String nickName, Integer number, String tickerName, String exchange, String type,
+			Integer elapsedTime, Double cost) {
 		Connection conn = null;
 		Statement smt = null;
 		ResultSet rs = null;
@@ -818,7 +866,27 @@ public class AccountManager extends Thread {
 		String message = "";
 		try {
 
-			Double value = (Double) getPositionValue(tickerName, exchange)[1];
+			Double value = cost;
+			System.out.println("");
+			System.out.println("Test Coot 2 "+value);
+			System.out.println("");
+			try {
+				Thread.sleep(2000);
+			}catch(Exception e) {
+				
+			}
+			if(value==0.0) {
+				value =(Double) getPositionValue(tickerName, exchange)[1]; 
+				System.out.println("");
+				System.out.println("Test Coot 3 "+value);
+				System.out.println("");
+				try {
+					Thread.sleep(2000);
+				}catch(Exception e) {
+					
+				}
+				}
+			
 
 			String query = "";
 			if (value != 0.0) {
@@ -830,6 +898,10 @@ public class AccountManager extends Thread {
 
 				}
 
+				if(number <0) {
+					
+					message = "Negative Number Entered.";
+				}
 				else if ((value * number) > balance) {
 
 					System.out.println(value * number + " " + getCashBalance(nickName));
@@ -865,9 +937,9 @@ public class AccountManager extends Thread {
 							System.out.println("New Order");
 							orderAmount = (double) number;
 							orderCost = value * number;
-							query = "insert into orders(USER_ID, TICKER, EXCHANGE, HOLD_METHOD, UNITS, COST ) values ('"
+							query = "insert into orders(USER_ID, TICKER, EXCHANGE, HOLD_METHOD, UNITS, COST, ELAPSED_TIME,STARTTIME ) values ('"
 									+ userId + "','" + tickerName + "','" + exchange + "','" + type + "', '"
-									+ orderAmount + "', '" + orderCost + "') ;";
+									+ orderAmount + "', '" + orderCost + "','"+elapsedTime+"','now()') ;";
 
 						} else {
 
@@ -917,6 +989,11 @@ public class AccountManager extends Thread {
 
 	public String closePosition(String nickName, Integer number, String tickerName, String exchange, String type) {
 		int positionNum = 0;
+		
+		if(number<0) {
+			
+			return "Invalid negative number of shares/crypto entered.";
+		}
 
 		Double value = (Double) getPositionValue(tickerName, exchange)[0];
 
@@ -962,9 +1039,13 @@ public class AccountManager extends Thread {
 
 				Double costBasis = (orderCost / orderUnits) * number;
 
+				if((orderUnits - number)!=0.0) {
 				query = "UPDATE orders SET units ='" + (orderUnits - number) + "',cost='" + (orderCost - costBasis)
 						+ "' WHERE order_id ='" + orderId + "' ;";
 
+				}else {
+					query="DELETE FROM orders WHERE order_id='"+orderId+"';";
+				}
 				if (type.contentEquals("long")) {
 
 					returnOnInvestment = value * number;
@@ -1075,19 +1156,23 @@ public class AccountManager extends Thread {
 
 	public Object[] getPositionValue(String ticker, String exchange) {
 
+		
+			DownloadData d = new DownloadData();
+		
 		Object value[] = { 0.0, 0.0 };
 		System.out.println(ticker);
 		System.out.println(exchange);
 		Random r = new Random();
 		Double random = r.nextGaussian();
-
+try{
 		if (exchange.contentEquals("equity")) {
 
-			Object data[] = d.stock.getPrice(ticker.toLowerCase());
+			Object data[] = d.stock.getPrice(ticker.toUpperCase());
 
-			if ((Double) data[0] != 0.0) {
-				value[0] = (Double) data[0] * Math.exp(((random * 0.001) - 0.0001));
-				value[1] = (Double) data[0] * Math.exp(((random * 0.001) + 0.0001));
+			 if ((Double)data[0]!=0.0) {
+				value[0] = (Double) data[0] * Math.exp(((random * 0.001) - 0.0001));//bid
+				value[1] = (Double) data[0] * Math.exp(((random * 0.001) + 0.0001));//ask
+				
 			}
 
 		} else if (exchange.contentEquals("crypto")) {
@@ -1099,6 +1184,9 @@ public class AccountManager extends Thread {
 			}
 		}
 
+		}catch(Exception e) {
+			e.printStackTrace();
+		}
 		return value;
 	}
 
@@ -1114,26 +1202,27 @@ public class AccountManager extends Thread {
 		int userId = getUserId(nickName);
 		if (userId == 0) {
 
-			
+		
 
 			return records;
 		}
 
 		try {
+			
+			
 
 			conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/test", connectionProps);
 			if (!conn.isClosed()) {
 				System.out.println("Connected to database");
 
+
 				try {
 
-					String query = "select orders.ticker , orders.exchange, orders.units, orders.hold_method " + "from orders "
-							+ "inner join user_accounts " + "on user_accounts.user_id = orders.user_id  "
-							+ "where user_accounts.user_nickname='" + nickName + "'";
+					String query = "select  units, cost, ticker, hold_method, exchange, elapsed_time from orders where user_id='"+userId+"'";
 
 					Statement smt = conn.createStatement();
 					ResultSet rs = smt.executeQuery(query);
-
+                   
 					while (rs.next()) {
 
 						if (rs.getDouble("UNITS") != 0.0 && !rs.getString("TICKER").contains("LIBOR")) {
@@ -1142,9 +1231,16 @@ public class AccountManager extends Thread {
 							String ticker = rs.getString("TICKER");
 							String type = rs.getString("HOLD_METHOD");
 							String exchange = rs.getString("EXCHANGE");
-							
+							int elapsed    = rs.getInt("ELAPSED_TIME");
+							Double cost = rs.getDouble("COST");
+							Double currentPrice =(Double) getPositionValue(ticker,exchange)[0];
+									
+									
 							Record record = new Record();
 							
+							record.setCost(cost);
+							record.setCurrentPrice(currentPrice);
+							record.setElapsedTime(elapsed);
 							record.setUnits(units);
 							record.setTicker(ticker);
 							record.setType(type);
@@ -1160,6 +1256,7 @@ public class AccountManager extends Thread {
 					e.printStackTrace();
 
 				}
+				
 			}
 		} catch (Exception e) {
 
@@ -1173,6 +1270,8 @@ public class AccountManager extends Thread {
 				e.printStackTrace();
 			}
 		}
+		
+		
 
 		return records;
 
@@ -1375,6 +1474,49 @@ public class AccountManager extends Thread {
 			temp.put(aa.getKey(), aa.getValue());
 		}
 		return temp;
+	}
+	
+	public void updateElapsedTime(String nickName) {
+		
+		Connection conn = null;
+		Properties connectionProps = new Properties();
+		connectionProps.put("user", user);
+		connectionProps.put("password", passwd);
+		
+		
+		int userId = getUserId(nickName);
+		if (userId == 0) {
+
+			List<String> reply = new ArrayList<>();
+			reply.add("User not found.");
+
+			return;
+		}
+		
+
+		try {
+			conn = DriverManager.getConnection("jdbc:postgresql://localhost:5432/test", connectionProps);
+			if (!conn.isClosed()) {
+				
+				String sql="update orders set elapsed_time=elapsed_time+1 where user_id='"+userId+"'";
+				Statement smt = conn.createStatement();
+				smt.executeUpdate(sql);
+				
+				
+			}}catch (Exception e) {
+
+				e.printStackTrace();
+
+			} finally {
+
+				try {
+					conn.close();
+				} catch (SQLException e) {
+
+					e.printStackTrace();
+				}
+			}
+		
 	}
 
 	public List<String> getScore() {
